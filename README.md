@@ -761,8 +761,6 @@ val configuration = HibernateMetadataConfiguration(
     classpath = listOf(File("build/classes/kotlin/main")),
     managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
 )
-// The naming strategy, dialect, customizers, and settings all default to Viaduct's standard
-// configuration; pass only the ones you want to change, e.g. `dialectClassName = "..."`.
 val accessor = ClassLoaderResourceAccessor(
     ViaductHibernateDatabase::class.java.classLoader
 )
@@ -781,6 +779,21 @@ ViaductHibernateDatabase.reference(configuration).use { reference ->
     }
 }
 accessor.close()
+```
+
+`mappingFile`, `classpath`, and `managedClassNames` are the mechanical inputs derived from a build
+or a generated mapping file. Every other parameter — naming strategies, dialect, metadata
+customizers, and Hibernate settings — is a policy knob that defaults to the same configuration
+described in [Customize Hibernate](#customize-hibernate); pass only the ones you want to change:
+
+```kotlin
+val configuration = HibernateMetadataConfiguration(
+    mappingFile = mappingFile,
+    classpath = listOf(File("build/classes/kotlin/main")),
+    managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
+    physicalNamingStrategyClassName = "com.example.persistence.CustomPhysicalNamingStrategy",
+    metadataCustomizerClassNames = listOf("com.example.persistence.CustomMetadataCustomizer"),
+)
 ```
 
 Because the token is held in memory, a standalone Liquibase CLI process cannot use this URL. Use
