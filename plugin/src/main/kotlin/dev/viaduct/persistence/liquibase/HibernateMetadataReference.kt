@@ -1,40 +1,35 @@
 package dev.viaduct.persistence.liquibase
 
 import dev.viaduct.persistence.hibernate.HibernateMetadataConfiguration
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
+import dev.viaduct.persistence.hibernate.HibernateMetadataConfigurationDescriptor
+import java.io.File
 
 internal const val HIBERNATE_VIADUCT_URL_PREFIX = "hibernate:viaduct:"
 
-/** An in-process Liquibase reference to a Hibernate metadata configuration. */
+/** A Liquibase reference to a Hibernate metadata configuration, backed by a descriptor file. */
 class HibernateMetadataReference internal constructor(
-    private val token: String,
+    private val descriptorFile: File,
 ) : AutoCloseable {
-    val url: String = HIBERNATE_VIADUCT_URL_PREFIX + token
+    val url: String = HIBERNATE_VIADUCT_URL_PREFIX + descriptorFile.absolutePath
 
     override fun close() {
-        HibernateMetadataReferenceRegistry.release(token)
+        descriptorFile.delete()
+    }
+
+    companion object {
+        @Suppress("MaxLineLength")
+        fun forDescriptorFile(descriptorFile: File): HibernateMetadataReference = HibernateMetadataReference(descriptorFile)
     }
 }
 
-internal object HibernateMetadataReferenceRegistry {
-    private val configurations = ConcurrentHashMap<String, HibernateMetadataConfiguration>()
-
-    fun register(configuration: HibernateMetadataConfiguration): HibernateMetadataReference {
+internal object HibernateMetadataReferences {
+    fun create(configuration: HibernateMetadataConfiguration): HibernateMetadataReference {
         configuration.validate()
-        var token = UUID.randomUUID().toString()
-        while (configurations.putIfAbsent(token, configuration) != null) {
-            token = UUID.randomUUID().toString()
-        }
-        return HibernateMetadataReference(token)
+        val descriptorFile = File.createTempFile("hibernate-viaduct-metadata", ".yaml")
+        HibernateMetadataConfigurationDescriptor.write(configuration, descriptorFile)
+        return HibernateMetadataReference.forDescriptorFile(descriptorFile)
     }
 
-    fun resolve(token: String): HibernateMetadataConfiguration =
-        requireNotNull(configurations[token]) {
-            "No Hibernate metadata configuration is registered for reference $token"
-        }
-
-    fun release(token: String) {
-        configurations.remove(token)
-    }
+    @Suppress("MaxLineLength")
+    fun resolve(path: String): HibernateMetadataConfiguration = HibernateMetadataConfigurationDescriptor.read(File(path))
 }

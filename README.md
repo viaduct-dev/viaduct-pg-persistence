@@ -722,17 +722,18 @@ replacement is supported but is not the recommended default.
 
 ## Liquibase Database Driver
 
-The plugin library registers a Liquibase reference database with an opaque, in-process URL:
+The plugin library resolves a Liquibase reference database from a YAML descriptor file:
 
 ```text
-hibernate:viaduct:<opaque-token>
+hibernate:viaduct:<path-to-descriptor.yaml>
 ```
 
-The token points to an in-memory `HibernateMetadataConfiguration` registered by the current JVM.
-The driver creates an isolated classloader from that configuration, applies the configured
-Hibernate naming strategies and metadata customizers, and returns the same metadata used by
-`buildViaductEffectiveModel`. No descriptor file or serialization is involved. The Gradle tasks
-register and release the configuration automatically.
+The path points to a descriptor written by `ViaductHibernateDatabase.reference(configuration)`,
+holding the full `HibernateMetadataConfiguration` — including the semantic persistence model used
+for pg_graphql-aware diffing, when one is available. The driver reads the descriptor, creates an
+isolated classloader from it, applies the configured Hibernate naming strategies and metadata
+customizers, and returns the same metadata used by `buildViaductEffectiveModel`. The Gradle tasks
+write and delete the descriptor automatically.
 
 Add the driver when using it outside the plugin tasks:
 
@@ -746,7 +747,7 @@ dependencies {
 }
 ```
 
-Programmatic usage in the same JVM:
+Programmatic usage:
 
 ```kotlin
 import java.io.File
@@ -796,8 +797,10 @@ val configuration = HibernateMetadataConfiguration(
 )
 ```
 
-Because the token is held in memory, a standalone Liquibase CLI process cannot use this URL. Use
-the Gradle tasks or register the configuration from a program in the same JVM.
+Because the descriptor is a real file, a standalone Liquibase CLI process can use this URL too —
+write the descriptor once with `HibernateMetadataConfigurationDescriptor.write(configuration, file)`
+and pass `hibernate:viaduct:<absolute path to file>` as the `--url`, with the plugin library and
+its Liquibase dependencies on the CLI's classpath.
 
 This driver is a Liquibase reference database, not a JDBC driver and not an application runtime
 ORM. Applications using pg_graphql do not need Hibernate in their production runtime. Tests or

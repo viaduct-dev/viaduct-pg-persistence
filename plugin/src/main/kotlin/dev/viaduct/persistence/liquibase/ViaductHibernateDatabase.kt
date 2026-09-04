@@ -11,6 +11,7 @@ import liquibase.exception.DatabaseException
 import liquibase.ext.hibernate.database.HibernateDatabase
 import org.hibernate.boot.Metadata
 import org.hibernate.boot.MetadataSources
+import java.io.File
 
 private typealias LiquibaseConnection = DatabaseConnection
 
@@ -38,12 +39,12 @@ class ViaductHibernateDatabase : HibernateDatabase() {
     override fun getDefaultDatabaseProductName(): String = "Hibernate Viaduct"
 
     override fun buildMetadataFromPath(): Metadata {
-        val token = referenceToken()
+        val path = referencePath()
         val configuration =
-            runCatching { HibernateMetadataReferenceRegistry.resolve(token) }
+            runCatching { HibernateMetadataReferences.resolve(path) }
                 .getOrElse { failure ->
                     throw DatabaseException(
-                        "Unable to resolve Viaduct Hibernate metadata reference $token",
+                        "Unable to resolve Viaduct Hibernate metadata reference $path",
                         failure,
                     )
                 }
@@ -61,7 +62,7 @@ class ViaductHibernateDatabase : HibernateDatabase() {
                 }.metadata
         }.getOrElse { failure ->
             throw DatabaseException(
-                "Unable to build Hibernate metadata for reference $token",
+                "Unable to build Hibernate metadata for reference $path",
                 failure,
             )
         }
@@ -80,7 +81,7 @@ class ViaductHibernateDatabase : HibernateDatabase() {
     override fun configureSources(sources: MetadataSources) = Unit
 
     override fun close() {
-        val token = referenceTokenOrNull()
+        val path = referencePathOrNull()
         try {
             super.close()
         } finally {
@@ -89,16 +90,16 @@ class ViaductHibernateDatabase : HibernateDatabase() {
             } finally {
                 metadataHandle = null
                 effectiveModel = null
-                token?.let(HibernateMetadataReferenceRegistry::release)
+                path?.let { File(it).delete() }
             }
         }
     }
 
-    private fun referenceToken(): String =
-        referenceTokenOrNull()
+    private fun referencePath(): String =
+        referencePathOrNull()
             ?: throw DatabaseException("Invalid Viaduct Hibernate metadata reference URL")
 
-    private fun referenceTokenOrNull(): String? =
+    private fun referencePathOrNull(): String? =
         runCatching {
             hibernateConnection.url
                 .takeIf { it.startsWith(URL_PREFIX) }
@@ -110,6 +111,6 @@ class ViaductHibernateDatabase : HibernateDatabase() {
         const val URL_PREFIX = HIBERNATE_VIADUCT_URL_PREFIX
 
         fun reference(configuration: HibernateMetadataConfiguration): HibernateMetadataReference =
-            HibernateMetadataReferenceRegistry.register(configuration)
+            HibernateMetadataReferences.create(configuration)
     }
 }
