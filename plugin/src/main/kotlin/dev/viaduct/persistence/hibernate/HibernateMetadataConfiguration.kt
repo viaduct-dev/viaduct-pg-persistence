@@ -6,18 +6,18 @@ import java.io.File
 /**
  * The in-memory inputs used to build the Hibernate metadata for a persistence task.
  *
- * [mappingFile], [classpath], and [managedClassNames] are mechanical inputs derived from a build
- * or a generated mapping file. All three default to the plugin's own conventions — the mapping
- * file the Gradle tasks generate, the current JVM's classpath, and the managed classes declared
- * in that mapping file — so a caller with an already-generated mapping at the conventional
- * location can build a configuration with no arguments at all. The remaining parameters are
- * policy knobs with sensible defaults; override only the ones you need to change.
+ * [mappingFile], [classpath], and [managedClassNames] have no default here on purpose: a process
+ * that builds configurations for more than one mapping file (tests generating several
+ * scenario-specific models are the common case) must not have a missing override silently fall
+ * back to an unrelated file that happens to exist. Use [default] for the common single-mapping-
+ * file case instead. The remaining parameters are policy knobs with sensible defaults; override
+ * only the ones you need to change.
  */
 @Suppress("LongParameterList")
 class HibernateMetadataConfiguration(
-    val mappingFile: File = defaultMappingFile(),
-    classpath: List<File> = defaultClasspath(),
-    managedClassNames: List<String> = managedClassNamesIn(mappingFile),
+    val mappingFile: File,
+    classpath: List<File>,
+    managedClassNames: List<String>,
     val implicitNamingStrategyClassName: String = ViaductImplicitNamingStrategy::class.java.name,
     val physicalNamingStrategyClassName: String = ViaductPhysicalNamingStrategy::class.java.name,
     metadataCustomizerClassNames: List<String> = emptyList(),
@@ -81,6 +81,41 @@ class HibernateMetadataConfiguration(
                 .map { it.groupValues[1] }
                 .distinct()
                 .toList()
+        }
+
+        /**
+         * Builds a configuration from the plugin's own conventions: [defaultMappingFile],
+         * [defaultClasspath], and the managed classes declared in that mapping file.
+         *
+         * Only use this when a single mapping file exists at the conventional location for the
+         * lifetime of this process. A caller building configurations for more than one mapping
+         * file — for example, a test that generates several scenario-specific models — should use
+         * the primary constructor with an explicit [mappingFile] instead, so a missing override is
+         * a compile error rather than a silent fallback to the wrong file.
+         */
+        @Suppress("LongParameterList")
+        fun default(
+            implicitNamingStrategyClassName: String = ViaductImplicitNamingStrategy::class.java.name,
+            physicalNamingStrategyClassName: String = ViaductPhysicalNamingStrategy::class.java.name,
+            metadataCustomizerClassNames: List<String> = emptyList(),
+            dialectClassName: String = DEFAULT_DIALECT,
+            hibernateSettings: Map<String, String> = defaultSettings(),
+            semanticModel: PersistenceModel? = null,
+            packageName: String? = null,
+        ): HibernateMetadataConfiguration {
+            val mappingFile = defaultMappingFile()
+            return HibernateMetadataConfiguration(
+                mappingFile = mappingFile,
+                classpath = defaultClasspath(),
+                managedClassNames = managedClassNamesIn(mappingFile),
+                implicitNamingStrategyClassName = implicitNamingStrategyClassName,
+                physicalNamingStrategyClassName = physicalNamingStrategyClassName,
+                metadataCustomizerClassNames = metadataCustomizerClassNames,
+                dialectClassName = dialectClassName,
+                hibernateSettings = hibernateSettings,
+                semanticModel = semanticModel,
+                packageName = packageName,
+            )
         }
     }
 }

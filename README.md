@@ -755,7 +755,7 @@ import liquibase.resource.ClassLoaderResourceAccessor
 import dev.viaduct.persistence.hibernate.HibernateMetadataConfiguration
 import dev.viaduct.persistence.liquibase.ViaductHibernateDatabase
 
-val configuration = HibernateMetadataConfiguration()
+val configuration = HibernateMetadataConfiguration.default()
 val accessor = ClassLoaderResourceAccessor(
     ViaductHibernateDatabase::class.java.classLoader
 )
@@ -776,13 +776,18 @@ ViaductHibernateDatabase.reference(configuration).use { reference ->
 accessor.close()
 ```
 
-Every parameter has a default, so `HibernateMetadataConfiguration()` works as-is once the plugin
-has generated a mapping file: `mappingFile` defaults to the plugin's own generated location
-(`build/generated/viaduct-persistence/resources/META-INF/orm.xml`), `classpath` defaults to the
-current JVM's classpath, and `managedClassNames` defaults to the entity classes declared in
-`mappingFile` (via `HibernateMetadataConfiguration.managedClassNamesIn`). Override the mechanical
-fields when a mapping file lives somewhere else, or the classes it declares aren't already on the
-running JVM's classpath:
+`HibernateMetadataConfiguration.default()` works as-is once the plugin has generated a mapping
+file: it uses the plugin's own generated location
+(`build/generated/viaduct-persistence/resources/META-INF/orm.xml`), the current JVM's classpath,
+and the entity classes declared in that mapping file
+(`HibernateMetadataConfiguration.managedClassNamesIn`).
+
+`mappingFile`, `classpath`, and `managedClassNames` have no default on the primary constructor
+itself, on purpose: a process building configurations for more than one mapping file — a test
+generating several scenario-specific models is the common case — must not have a missing override
+silently fall back to an unrelated mapping file that happens to exist at the conventional location.
+Use the primary constructor with an explicit `mappingFile` whenever more than one is in play, or
+the entity classes aren't already on the running JVM's classpath:
 
 ```kotlin
 val mappingFile = File("some/other/orm.xml")
@@ -794,11 +799,11 @@ val configuration = HibernateMetadataConfiguration(
 ```
 
 Naming strategies, dialect, metadata customizers, and Hibernate settings are policy knobs that
-default to the same configuration described in [Customize Hibernate](#customize-hibernate); pass
-only the ones you want to change:
+default to the same configuration described in [Customize Hibernate](#customize-hibernate) on both
+paths; pass only the ones you want to change:
 
 ```kotlin
-val configuration = HibernateMetadataConfiguration(
+val configuration = HibernateMetadataConfiguration.default(
     physicalNamingStrategyClassName = "com.example.persistence.CustomPhysicalNamingStrategy",
     metadataCustomizerClassNames = listOf("com.example.persistence.CustomMetadataCustomizer"),
 )

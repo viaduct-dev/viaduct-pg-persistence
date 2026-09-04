@@ -23,24 +23,24 @@ class HibernateMetadataConfigurationTest {
     }
 
     @Test
-    fun `mechanical fields default from an already-generated mapping file`() {
-        val mappingFile =
-            File.createTempFile("hibernate-metadata-configuration-defaults", ".xml").also {
-                it.writeText(
-                    """
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm" version="3.2">
-                      <entity class="example.generated.Group" access="FIELD">
-                        <table name="groups"/>
-                      </entity>
-                    </entity-mappings>
-                    """.trimIndent(),
-                )
-            }
+    fun `default builds a configuration from the conventional mapping file location`() {
+        val mappingFile = HibernateMetadataConfiguration.defaultMappingFile()
+        mappingFile.parentFile.mkdirs()
+        mappingFile.writeText(
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm" version="3.2">
+              <entity class="example.generated.Group" access="FIELD">
+                <table name="groups"/>
+              </entity>
+            </entity-mappings>
+            """.trimIndent(),
+        )
 
         try {
-            val configuration = HibernateMetadataConfiguration(mappingFile = mappingFile)
+            val configuration = HibernateMetadataConfiguration.default()
 
+            assertEquals(mappingFile, configuration.mappingFile)
             assertEquals(listOf("example.generated.Group"), configuration.managedClassNames)
             assertTrue(configuration.classpath.isNotEmpty())
         } finally {
