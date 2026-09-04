@@ -750,18 +750,12 @@ dependencies {
 Programmatic usage:
 
 ```kotlin
-import java.io.File
 import liquibase.database.DatabaseFactory
 import liquibase.resource.ClassLoaderResourceAccessor
 import dev.viaduct.persistence.hibernate.HibernateMetadataConfiguration
 import dev.viaduct.persistence.liquibase.ViaductHibernateDatabase
 
-val mappingFile = File("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
-val configuration = HibernateMetadataConfiguration(
-    mappingFile = mappingFile,
-    classpath = listOf(File("build/classes/kotlin/main")),
-    managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
-)
+val configuration = HibernateMetadataConfiguration()
 val accessor = ClassLoaderResourceAccessor(
     ViaductHibernateDatabase::class.java.classLoader
 )
@@ -782,16 +776,29 @@ ViaductHibernateDatabase.reference(configuration).use { reference ->
 accessor.close()
 ```
 
-`mappingFile`, `classpath`, and `managedClassNames` are the mechanical inputs derived from a build
-or a generated mapping file. Every other parameter — naming strategies, dialect, metadata
-customizers, and Hibernate settings — is a policy knob that defaults to the same configuration
-described in [Customize Hibernate](#customize-hibernate); pass only the ones you want to change:
+Every parameter has a default, so `HibernateMetadataConfiguration()` works as-is once the plugin
+has generated a mapping file: `mappingFile` defaults to the plugin's own generated location
+(`build/generated/viaduct-persistence/resources/META-INF/orm.xml`), `classpath` defaults to the
+current JVM's classpath, and `managedClassNames` defaults to the entity classes declared in
+`mappingFile` (via `HibernateMetadataConfiguration.managedClassNamesIn`). Override the mechanical
+fields when a mapping file lives somewhere else, or the classes it declares aren't already on the
+running JVM's classpath:
 
 ```kotlin
+val mappingFile = File("some/other/orm.xml")
 val configuration = HibernateMetadataConfiguration(
     mappingFile = mappingFile,
     classpath = listOf(File("build/classes/kotlin/main")),
     managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
+)
+```
+
+Naming strategies, dialect, metadata customizers, and Hibernate settings are policy knobs that
+default to the same configuration described in [Customize Hibernate](#customize-hibernate); pass
+only the ones you want to change:
+
+```kotlin
+val configuration = HibernateMetadataConfiguration(
     physicalNamingStrategyClassName = "com.example.persistence.CustomPhysicalNamingStrategy",
     metadataCustomizerClassNames = listOf("com.example.persistence.CustomMetadataCustomizer"),
 )
