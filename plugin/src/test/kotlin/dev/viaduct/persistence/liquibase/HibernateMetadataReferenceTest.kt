@@ -140,13 +140,6 @@ class HibernateMetadataReferenceTest {
             mappingFile = mappingFile,
             classpath = emptyList(),
             managedClassNames = listOf("example.MissingEntity"),
-            implicitNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy",
-            physicalNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy",
-            metadataCustomizerClassNames = emptyList(),
-            dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-            hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
         )
 
     private fun validConfiguration(mappingFile: File): HibernateMetadataConfiguration =
@@ -154,13 +147,6 @@ class HibernateMetadataReferenceTest {
             mappingFile = mappingFile,
             classpath = classpath(),
             managedClassNames = listOf(TestReferenceEntity::class.java.name),
-            implicitNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy",
-            physicalNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy",
-            metadataCustomizerClassNames = emptyList(),
-            dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-            hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
         )
 
     private fun classpath(): List<File> =

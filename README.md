@@ -755,16 +755,14 @@ import liquibase.resource.ClassLoaderResourceAccessor
 import dev.viaduct.persistence.hibernate.HibernateMetadataConfiguration
 import dev.viaduct.persistence.liquibase.ViaductHibernateDatabase
 
+val mappingFile = File("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
 val configuration = HibernateMetadataConfiguration(
-    mappingFile = File("build/generated/viaduct-persistence/resources/META-INF/orm.xml"),
+    mappingFile = mappingFile,
     classpath = listOf(File("build/classes/kotlin/main")),
-    managedClassNames = listOf("example.generated.Group"),
-    implicitNamingStrategyClassName = "dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy",
-    physicalNamingStrategyClassName = "dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy",
-    metadataCustomizerClassNames = emptyList(),
-    dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-    hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
+    managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
 )
+// The naming strategy, dialect, customizers, and settings all default to Viaduct's standard
+// configuration; pass only the ones you want to change, e.g. `dialectClassName = "..."`.
 val accessor = ClassLoaderResourceAccessor(
     ViaductHibernateDatabase::class.java.classLoader
 )
