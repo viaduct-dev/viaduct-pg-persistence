@@ -51,6 +51,33 @@ mapping, and node-reference hydration. A generated `ConnectionBuilder` with a co
 `nodes` field or an `edges { node }` shape is recognized structurally, so nested connections and
 ordinary domain fields named `nodes` remain schema-safe without translation metadata.
 
+## Writes
+
+`PgGraphqlMutationClient` executes pg_graphql's generated Relay CRUD mutations without requiring
+a Viaduct execution context. This lets an application's mutation resolvers retain their domain
+validation and `userErrors` behavior while replacing direct PostgREST `POST`, `PATCH`, and `DELETE`
+calls. Credentials are passed per call and values are always sent as GraphQL variables:
+
+```kotlin
+val writes = PgGraphqlMutationClient(httpClient, "$postgresGraphqlEndpoint/graphql/v1")
+val person = PgGraphqlEntity("Person")
+
+val result = writes.updateResult(
+    entity = person,
+    set = buildJsonObject { put("name", input.name) },
+    filter = buildJsonObject {
+        put("uuidId", buildJsonObject { put("eq", input.id) })
+    },
+    atMost = 1,
+    selection = "affectedCount records { uuidId name }",
+    headers = mapOf("Authorization" to "Bearer $accessToken", "apikey" to anonKey),
+)
+```
+
+Use the `*Result` methods to translate structured database errors into application payload errors.
+The strict `insert`, `update`, and `delete` methods throw `UpstreamGraphqlException` when pg_graphql
+returns errors. The explicit `atMost` parameter prevents an accidentally broad update or delete.
+
 Result operations preserve partial data and structured errors. Error paths are restored through
 the same response-shape transformation as data, including association rows and filtered single-row
 lookups. They are not automatically installed into Viaduct's field-error channel: a resolver that

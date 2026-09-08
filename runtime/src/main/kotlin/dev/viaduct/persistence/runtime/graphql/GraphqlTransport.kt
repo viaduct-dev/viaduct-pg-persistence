@@ -49,10 +49,15 @@ internal class PgGraphqlTransport(
     suspend fun executeResult(
         context: viaduct.api.context.ExecutionContext,
         query: GraphqlQuery,
+    ): DbResult<JsonObject> = executeResult(requestHeaders.forContext(context), query)
+
+    suspend fun executeResult(
+        headers: Map<String, String>,
+        query: GraphqlQuery,
     ): DbResult<JsonObject> {
         val response =
             httpClient.post(endpoint) {
-                requestHeaders.forContext(context).forEach { (name, value) ->
+                headers.forEach { (name, value) ->
                     header(name, value)
                 }
                 setBody(
