@@ -119,7 +119,7 @@ class HibernateMetadataConfigurationDescriptorTest {
             HibernateMetadataConfigurationDescriptor.write(configuration, file)
             HibernateMetadataConfigurationDescriptor.read(file)
         } finally {
-            file.delete()
+            check(file.delete() || !file.exists())
         }
     }
 }

@@ -25,7 +25,7 @@ class HibernateMetadataConfigurationTest {
     @Test
     fun `default builds a configuration from the conventional mapping file location`() {
         val mappingFile = HibernateMetadataConfiguration.defaultMappingFile()
-        mappingFile.parentFile.mkdirs()
+        check(mappingFile.parentFile.isDirectory || mappingFile.parentFile.mkdirs())
         mappingFile.writeText(
             """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -44,7 +44,7 @@ class HibernateMetadataConfigurationTest {
             assertEquals(listOf("example.generated.Group"), configuration.managedClassNames)
             assertTrue(configuration.classpath.isNotEmpty())
         } finally {
-            mappingFile.delete()
+            check(mappingFile.delete() || !mappingFile.exists())
         }
     }
 
@@ -98,7 +98,7 @@ class HibernateMetadataConfigurationTest {
                 HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
             )
         } finally {
-            mappingFile.delete()
+            check(mappingFile.delete() || !mappingFile.exists())
         }
     }
 }

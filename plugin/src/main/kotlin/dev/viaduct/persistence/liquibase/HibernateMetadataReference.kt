@@ -13,7 +13,7 @@ class HibernateMetadataReference internal constructor(
     val url: String = HIBERNATE_VIADUCT_URL_PREFIX + descriptorFile.absolutePath
 
     override fun close() {
-        descriptorFile.delete()
+        if (!descriptorFile.delete() && descriptorFile.exists()) descriptorFile.deleteOnExit()
     }
 
     companion object {

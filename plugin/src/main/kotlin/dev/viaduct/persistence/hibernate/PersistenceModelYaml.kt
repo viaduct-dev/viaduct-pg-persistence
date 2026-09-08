@@ -39,7 +39,7 @@ internal object PersistenceModelYaml {
         )
 
     @Suppress("MaxLineLength")
-    private fun enumToYaml(enum: PersistenceEnum): Map<String, Any?> = mapOf("graphqlName" to enum.graphqlName, "values" to enum.values)
+    private fun enumToYaml(value: PersistenceEnum): Map<String, Any?> = mapOf("graphqlName" to value.graphqlName, "values" to value.values)
 
     private fun enumFromYaml(yaml: Map<String, Any?>): PersistenceEnum =
         PersistenceEnum(graphqlName = yaml.yamlString("graphqlName"), values = yaml.yamlStringList("values"))

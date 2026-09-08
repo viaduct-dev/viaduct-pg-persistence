@@ -90,7 +90,7 @@ class ViaductHibernateDatabase : HibernateDatabase() {
             } finally {
                 metadataHandle = null
                 effectiveModel = null
-                path?.let { File(it).delete() }
+                deleteMetadataReference(path)
             }
         }
     }
@@ -113,4 +113,9 @@ class ViaductHibernateDatabase : HibernateDatabase() {
         fun reference(configuration: HibernateMetadataConfiguration): HibernateMetadataReference =
             HibernateMetadataReferences.create(configuration)
     }
+}
+
+private fun deleteMetadataReference(path: String?) {
+    val file = path?.let(::File) ?: return
+    if (!file.delete() && file.exists()) file.deleteOnExit()
 }
