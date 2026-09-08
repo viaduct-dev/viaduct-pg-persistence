@@ -367,6 +367,7 @@ class CollectionRelationshipTest {
                 type PersonEdge @edge {
                   node: Person!
                   role: String!
+                  invitedBy: Person
                 }
                 """.trimIndent(),
             )
@@ -382,12 +383,19 @@ class CollectionRelationshipTest {
         assertEquals("GroupMembersAssociation", members.joinTableName)
         assertEquals("PersonEdge", members.edgeMapping?.typeName)
         assertEquals(
-            PersistenceBasicAttribute(
-                name = "role",
-                nullable = false,
-                kotlinType = "String",
+            listOf(
+                PersistenceBasicAttribute(
+                    name = "role",
+                    nullable = false,
+                    kotlinType = "String",
+                ),
+                PersistenceToOneAttribute(
+                    name = "invitedBy",
+                    nullable = true,
+                    targetTypeName = "Person",
+                ),
             ),
-            members.edgeMapping?.attributes?.single(),
+            members.edgeMapping?.attributes,
         )
         assertEquals(1, model.associations.size)
         assertEquals("groupId", model.associations.single().ownerColumnName)
@@ -404,7 +412,7 @@ class CollectionRelationshipTest {
                 type Group { id: ID!, members: PersonConnection! }
                 type Person { id: ID! }
                 type PersonConnection @connection { edges: [PersonEdge!]! }
-                type PersonEdge @edge { node: Person!, role: String! }
+                type PersonEdge @edge { node: Person!, role: String!, invitedBy: Person }
                 """.trimIndent(),
             )
         val model = PersistenceModelBuilder().build(schema, setOf("Group", "Person"))
@@ -414,7 +422,7 @@ class CollectionRelationshipTest {
                 .attributes
                 .single { it.name == "members" } as PersistenceToManyAttribute
         assertEquals("PersonEdge", mapping.edgeMapping?.typeName)
-        assertEquals(listOf("role"), mapping.edgeMapping?.attributes?.map { it.name })
+        assertEquals(listOf("role", "invitedBy"), mapping.edgeMapping?.attributes?.map { it.name })
     }
 
     @Test
@@ -427,7 +435,7 @@ class CollectionRelationshipTest {
                 type Group { id: ID!, members: PersonConnection! }
                 type Person { id: ID! }
                 type PersonConnection @connection { edges: [PersonEdge!]! }
-                type PersonEdge @edge { node: Person!, role: String! }
+                type PersonEdge @edge { node: Person!, role: String!, invitedBy: Person }
                 """.trimIndent(),
             )
         val model = PersistenceModelBuilder().build(schema, setOf("Group", "Person"))
@@ -439,6 +447,8 @@ class CollectionRelationshipTest {
             assertTrue(mapping.contains("<table name=\"GroupMembersAssociation\" schema=\"viaduct_internal\""))
             assertTrue(mapping.contains("<basic name=\"role\""))
             assertTrue(mapping.contains("name=\"role\" nullable=\"false\""))
+            assertTrue(mapping.contains("<many-to-one fetch=\"LAZY\" name=\"invitedBy\""))
+            assertTrue(mapping.contains("name=\"invitedById\" nullable=\"true\""))
         } finally {
             output.deleteRecursively()
         }

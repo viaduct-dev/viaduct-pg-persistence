@@ -3,6 +3,7 @@ package dev.viaduct.persistence.pggraphql.overlay
 import dev.viaduct.persistence.hibernate.EffectiveHibernateModel
 import dev.viaduct.persistence.hibernate.EffectiveHibernateRelationship
 import dev.viaduct.persistence.hibernate.GraphqlNameKind
+import dev.viaduct.persistence.model.associationTypeName
 
 /** Renders pg_graphql foreign-key naming comments for ordinary relationships. */
 internal object PgGraphqlConstraintRenderer {
@@ -23,7 +24,8 @@ internal object PgGraphqlConstraintRenderer {
 
     private fun commentsByConstraint(model: EffectiveHibernateModel): Map<ConstraintColumn, String> {
         val namesByConstraint = linkedMapOf<ConstraintColumn, MutableMap<String, String>>()
-        model.relationships.forEach { relationship ->
+        val relationships = relationshipsIncludingEdgeFields(model)
+        relationships.forEach { relationship ->
             val names =
                 namesByConstraint.getOrPut(
                     ConstraintColumn(
@@ -35,9 +37,29 @@ internal object PgGraphqlConstraintRenderer {
                 )
             names[relationship.nameKey()] = relationship.fieldName
         }
-        synthesizeAmbiguousLocalNames(model, namesByConstraint)
+        synthesizeAmbiguousLocalNames(relationships, namesByConstraint)
         return namesByConstraint.mapValues { (_, names) -> graphqlCommentText(names) }
     }
+
+    private fun relationshipsIncludingEdgeFields(model: EffectiveHibernateModel): List<EffectiveHibernateRelationship> =
+        model.relationships +
+            model.computedRelationships.flatMap { association ->
+                association.edgeFields.mapNotNull { field ->
+                    if (field.collection != null || field.targetSchemaName == null || field.targetTableName == null) {
+                        return@mapNotNull null
+                    }
+                    EffectiveHibernateRelationship(
+                        ownerTypeName = associationTypeName(association.ownerTypeName, association.fieldName),
+                        fieldName = field.name,
+                        schemaName = association.joinSchemaName,
+                        tableName = association.joinTableName,
+                        columnName = field.columnName,
+                        graphqlNameKind = GraphqlNameKind.FOREIGN,
+                        targetSchemaName = field.targetSchemaName,
+                        targetTableName = field.targetTableName,
+                    )
+                }
+            }
 
     /**
      * pg_graphql derives a reverse-collection name from the source table alone, not the FK
@@ -48,10 +70,10 @@ internal object PgGraphqlConstraintRenderer {
      * leaving the collision in place.
      */
     private fun synthesizeAmbiguousLocalNames(
-        model: EffectiveHibernateModel,
+        relationships: List<EffectiveHibernateRelationship>,
         namesByConstraint: MutableMap<ConstraintColumn, MutableMap<String, String>>,
     ) {
-        model.relationships
+        relationships
             .filter { it.graphqlNameKind == GraphqlNameKind.FOREIGN && it.targetTableName != null }
             .groupBy {
                 TargetGroup(it.schemaName, it.tableName, it.targetSchemaName.orEmpty(), it.targetTableName.orEmpty())
