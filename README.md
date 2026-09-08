@@ -1,8 +1,8 @@
-# Viaduct GraphQL Persistence
+# Viaduct PG Persistence
 
 ## Overview
 
-Viaduct GraphQL Persistence lets a Viaduct application's GraphQL schema define its data model.
+Viaduct PG Persistence lets a Viaduct application's GraphQL schema define its data model.
 Types, fields, and relationships are written once in GraphQL instead of being maintained
 separately in GraphQL, Kotlin, and database mapping code.
 
@@ -33,14 +33,14 @@ Make the plugin and libraries available to Gradle:
 // settings.gradle.kts
 pluginManagement {
     repositories {
-        maven("https://viaduct-dev.github.io/viaduct-graphql-persistence/")
+        maven("https://viaduct-dev.github.io/viaduct-pg-persistence/")
         gradlePluginPortal()
     }
 }
 
 dependencyResolutionManagement {
     repositories {
-        maven("https://viaduct-dev.github.io/viaduct-graphql-persistence/")
+        maven("https://viaduct-dev.github.io/viaduct-pg-persistence/")
         mavenCentral()
     }
 }
@@ -55,14 +55,14 @@ Add the persistence plugin to the Viaduct application and choose a package for g
 plugins {
     kotlin("jvm")
     id("com.airbnb.viaduct.application-gradle-plugin") version "<viaduct-version>"
-    id("dev.viaduct.graphql-persistence") version "0.1.0-SNAPSHOT"
+    id("dev.viaduct.pg-persistence") version "0.1.0-SNAPSHOT"
 }
 
 dependencies {
     implementation("dev.viaduct.persistence:runtime:0.1.0-SNAPSHOT")
 }
 
-viaductPersistence {
+viaductPgPersistence {
     packageName.set("com.example.persistence.generated")
 }
 ```
@@ -167,7 +167,7 @@ The two public libraries use the `dev.viaduct.persistence` Maven group:
 | `dev.viaduct.persistence:runtime` | Viaduct db runtime, pg_graphql translation, and client |
 | `dev.viaduct.persistence:plugin` | Gradle plugin, persistence model generation, overlays, and Liquibase integration |
 
-The Gradle plugin ID is `dev.viaduct.graphql-persistence`.
+The Gradle plugin ID is `dev.viaduct.pg-persistence`.
 
 ## GraphQL Conventions
 
@@ -268,7 +268,7 @@ the schema or manufacture a view/function to bypass that requirement. Self-refer
 relationships use distinct owner and target columns. Override the schema when needed:
 
 ```kotlin
-viaductPersistence {
+viaductPgPersistence {
     associationSchemaName.set("application_internal")
 }
 ```
@@ -415,7 +415,7 @@ source of truth.
 Override only the YAML location from Gradle when needed:
 
 ```kotlin
-viaductPersistence {
+viaductPgPersistence {
     persistenceConfigFile.set(layout.projectDirectory.file("config/persistence.yaml"))
 }
 ```
@@ -424,8 +424,8 @@ viaductPersistence {
 
 | Task | Purpose |
 | --- | --- |
-| `validateViaductPersistenceSchema` | Validate db and persistence constraints |
-| `generateViaductPersistenceModel` | Generate plain entities and `orm.xml` from the assembled schema |
+| `validateViaductPgPersistenceSchema` | Validate db and persistence constraints |
+| `generateViaductPgPersistenceModel` | Generate plain entities and `orm.xml` from the assembled schema |
 | `buildViaductEffectiveModel` | Compile the model through Hibernate and generate database overlays |
 | `hibernateSchemaSnapshot` | Write a reviewable Liquibase JSON snapshot |
 | `hibernateSchemaDiff` | Compare the generated model with a PostgreSQL database |
@@ -625,7 +625,7 @@ The plugin does not apply migrations. A typical workflow is:
 Configure the comparison database without committing credentials:
 
 ```kotlin
-viaductPersistence {
+viaductPgPersistence {
     schemaDiffUrl.set(
         providers.environmentVariable("SCHEMA_DIFF_DATABASE_URL")
     )
@@ -682,7 +682,7 @@ generated internal ID to `_uuid_id`.
 Supply compiled application classes by name:
 
 ```kotlin
-viaductPersistence {
+viaductPgPersistence {
     implicitNamingStrategyClassName.set(
         "com.example.persistence.CustomImplicitNamingStrategy"
     )
@@ -711,7 +711,7 @@ class CustomMetadataCustomizer : HibernateMetadataCustomizer {
 For complete control, replace the generated mapping:
 
 ```kotlin
-viaductPersistence {
+viaductPgPersistence {
     replacementOrmXml.set(layout.projectDirectory.file("config/orm.xml"))
 }
 ```
@@ -868,5 +868,5 @@ repository.
 
 ## License
 
-Viaduct GraphQL Persistence is licensed under the
+Viaduct PG Persistence is licensed under the
 [Apache License, Version 2.0](LICENSE), matching Viaduct.

@@ -6,7 +6,7 @@ import org.gradle.api.tasks.TaskProvider
 /** Registers the review-only Liquibase snapshot task. */
 internal class HibernateSnapshotTaskRegistrar(
     private val project: Project,
-    private val extension: ViaductPersistenceExtension,
+    private val extension: ViaductPgPersistenceExtension,
     private val layout: PersistenceBuildLayout,
 ) {
     fun register(effective: TaskProvider<BuildEffectiveHibernateModelTask>) {

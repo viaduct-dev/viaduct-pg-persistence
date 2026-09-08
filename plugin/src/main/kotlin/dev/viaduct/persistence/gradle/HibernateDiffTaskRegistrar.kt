@@ -9,7 +9,7 @@ private typealias SchemaDiffTask = TaskProvider<HibernateSchemaDiffTask>
 /** Registers the raw and conservative review-only Liquibase diff tasks. */
 internal class HibernateDiffTaskRegistrar(
     private val project: Project,
-    private val extension: ViaductPersistenceExtension,
+    private val extension: ViaductPgPersistenceExtension,
     private val layout: PersistenceBuildLayout,
 ) {
     fun register(effective: TaskProvider<BuildEffectiveHibernateModelTask>) {

@@ -1,6 +1,6 @@
 # Gradle Plugin
 
-The `dev.viaduct.graphql-persistence` plugin generates a Hibernate and PostgreSQL persistence
+The `dev.viaduct.pg-persistence` plugin generates a Hibernate and PostgreSQL persistence
 model from an assembled Viaduct GraphQL schema.
 
 The plugin is the build-time half of the persistence integration. Pair it with
@@ -10,10 +10,10 @@ The plugin is the build-time half of the persistence integration. Pair it with
 plugins {
     kotlin("jvm")
     id("com.airbnb.viaduct.application-gradle-plugin") version "<viaduct-version>"
-    id("dev.viaduct.graphql-persistence") version "0.1.0-SNAPSHOT"
+    id("dev.viaduct.pg-persistence") version "0.1.0-SNAPSHOT"
 }
 
-viaductPersistence {
+viaductPgPersistence {
     packageName.set("com.example.persistence.generated")
 }
 ```

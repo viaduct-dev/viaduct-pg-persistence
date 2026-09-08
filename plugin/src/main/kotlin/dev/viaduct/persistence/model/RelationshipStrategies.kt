@@ -186,7 +186,7 @@ private class InverseToOneCollectionMappingStrategy : CollectionMappingStrategy 
                 "${context.target.name} has multiple references back to ${context.source.name}: " +
                 "$candidates. Specify which one $coordinate is the inverse of by adding " +
                 "an inverseFieldOverrides entry to persistence.yaml " +
-                "(viaductPersistence.persistenceConfigFile), e.g.:\n" +
+                "(viaductPgPersistence.persistenceConfigFile), e.g.:\n" +
                 "relationships:\n  inverseFieldOverrides:\n    $coordinate: <fieldName>\n" +
                 "using one of: $candidates."
         }

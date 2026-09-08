@@ -7,7 +7,7 @@ import org.gradle.jvm.tasks.Jar
 /** Registers effective Hibernate metadata generation and packages its artifacts in the JAR. */
 internal class EffectiveModelRegistrar(
     private val project: Project,
-    private val extension: ViaductPersistenceExtension,
+    private val extension: ViaductPgPersistenceExtension,
     private val layout: PersistenceBuildLayout,
 ) {
     fun register(): TaskProvider<BuildEffectiveHibernateModelTask> {

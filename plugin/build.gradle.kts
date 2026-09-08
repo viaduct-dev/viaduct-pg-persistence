@@ -23,11 +23,11 @@ dependencies {
 
 gradlePlugin {
     plugins {
-        create("viaductPersistence") {
-            id = "dev.viaduct.graphql-persistence"
+        create("viaductPgPersistence") {
+            id = "dev.viaduct.pg-persistence"
             implementationClass =
-                "dev.viaduct.persistence.gradle.ViaductPersistencePlugin"
-            displayName = "Viaduct GraphQL Persistence"
+                "dev.viaduct.persistence.gradle.ViaductPgPersistencePlugin"
+            displayName = "Viaduct PG Persistence"
             description =
                 "Generates Hibernate metadata and database review artifacts from Viaduct GraphQL"
         }

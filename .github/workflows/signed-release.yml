@@ -105,14 +105,14 @@ jobs:
         working-directory: build/signed-maven-repository
         run: >-
           zip -qr
-          ../viaduct-graphql-persistence-${{ steps.release.outputs.version }}-signed.zip
+          ../viaduct-pg-persistence-${{ steps.release.outputs.version }}-signed.zip
           .
 
       - uses: actions/upload-artifact@v7
         with:
-          name: viaduct-graphql-persistence-${{ steps.release.outputs.version }}-signed
+          name: viaduct-pg-persistence-${{ steps.release.outputs.version }}-signed
           path: |
             build/signed-maven-repository
-            build/viaduct-graphql-persistence-${{ steps.release.outputs.version }}-signed.zip
+            build/viaduct-pg-persistence-${{ steps.release.outputs.version }}-signed.zip
           if-no-files-found: error
           retention-days: 30

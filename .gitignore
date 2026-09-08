@@ -5,4 +5,4 @@ local-repository/
 .playwright-mcp/
 secrets/
 # Release signing material is managed outside source control.
-/signing/viaduct-graphql-persistence-release.asc
+/signing/viaduct-pg-persistence-release.asc

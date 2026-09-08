@@ -5,12 +5,12 @@ import dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy
 import org.gradle.api.Project
 
 /** Registers the extension and its defaults independently from Kotlin task wiring. */
-internal object ViaductPersistenceExtensionDefaults {
-    fun register(project: Project): ViaductPersistenceExtension =
+internal object ViaductPgPersistenceExtensionDefaults {
+    fun register(project: Project): ViaductPgPersistenceExtension =
         project.extensions
             .create(
-                "viaductPersistence",
-                ViaductPersistenceExtension::class.java,
+                "viaductPgPersistence",
+                ViaductPgPersistenceExtension::class.java,
             ).apply {
                 // Matches `com.airbnb.viaduct.application-gradle-plugin`'s
                 // `assembleViaductCentralSchema` output path when that task is present (today's
