@@ -3,9 +3,11 @@ package dev.viaduct.persistence.model
 class PersistenceModel(
     entities: List<PersistenceEntity>,
     enums: List<PersistenceEnum>,
+    semanticNotNullCoordinates: Set<String> = emptySet(),
 ) {
     val entities: List<PersistenceEntity> = java.util.List.copyOf(entities)
     val enums: List<PersistenceEnum> = java.util.List.copyOf(enums)
+    val semanticNotNullCoordinates: Set<String> = java.util.Set.copyOf(semanticNotNullCoordinates)
     val associations: List<PersistenceAssociation> =
         java.util.List.copyOf(
             this.entities
@@ -22,12 +24,21 @@ class PersistenceModel(
 
     override fun equals(other: Any?): Boolean {
         val candidate = other as? PersistenceModel ?: return false
-        return entities == candidate.entities && enums == candidate.enums
+        return entities == candidate.entities &&
+            enums == candidate.enums &&
+            semanticNotNullCoordinates == candidate.semanticNotNullCoordinates
     }
 
-    override fun hashCode(): Int = 31 * entities.hashCode() + enums.hashCode()
+    override fun hashCode(): Int {
+        var result = entities.hashCode()
+        result = 31 * result + enums.hashCode()
+        result = 31 * result + semanticNotNullCoordinates.hashCode()
+        return result
+    }
 
-    override fun toString(): String = "PersistenceModel(entities=$entities, enums=$enums)"
+    override fun toString(): String =
+        "PersistenceModel(" +
+            "entities=$entities, enums=$enums, semanticNotNull=$semanticNotNullCoordinates)"
 }
 
 class PersistenceEntity(

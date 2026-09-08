@@ -185,9 +185,9 @@ private class InverseToOneCollectionMappingStrategy : CollectionMappingStrategy 
             "Relationship $coordinate -> ${context.target.name} is ambiguous because " +
                 "${context.target.name} has multiple references back to ${context.source.name}: " +
                 "$candidates. Specify which one $coordinate is the inverse of by adding " +
-                "an inverseFieldOverrides entry to your relationship config YAML " +
-                "(viaductPersistence.relationshipConfigFile), e.g.:\n" +
-                "inverseFieldOverrides:\n  $coordinate: <fieldName>\n" +
+                "an inverseFieldOverrides entry to persistence.yaml " +
+                "(viaductPersistence.persistenceConfigFile), e.g.:\n" +
+                "relationships:\n  inverseFieldOverrides:\n    $coordinate: <fieldName>\n" +
                 "using one of: $candidates."
         }
         return context.inverseToOneFields.singleOrNull()?.let { inverse ->

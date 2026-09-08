@@ -1,5 +1,6 @@
 package dev.viaduct.persistence.gradle
 
+import dev.viaduct.persistence.hibernate.HibernateSchemaModelWriter
 import dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy
 import dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy
 import org.gradle.testfixtures.ProjectBuilder
@@ -11,6 +12,37 @@ import kotlin.test.assertTrue
 
 class HibernateSchemaDiffTaskTest {
     @Test
+    fun `schema diff renders YAML semantic non-null as NOT NULL`() {
+        val projectDirectory = Files.createTempDirectory("hibernate-semantic-not-null").toFile()
+        try {
+            val schemaDirectory =
+                projectDirectory.resolve("schema").apply {
+                    check(mkdirs() || isDirectory)
+                }
+            schemaDirectory.resolve("Model.graphqls").writeText(
+                "interface Node { id: ID! } type Group implements Node { id: ID!, name: String }",
+            )
+            val config = projectDirectory.resolve("persistence.yaml")
+            config.writeText("semanticNotNull:\n  fields: [Group.name]\n")
+            val generated = projectDirectory.resolve("generated")
+            HibernateSchemaModelWriter().write(
+                model = PersistenceSchemaModelLoader.build(schemaDirectory, config),
+                outputDirectory = generated,
+                packageName = "dev.viaduct.persistence.gradle",
+            )
+            val diffFile = projectDirectory.resolve("schema-diff/review.h2.sql")
+            val task = task(projectDirectory, schemaDirectory, generated, config, diffFile)
+
+            task.diff()
+
+            val diff = diffFile.readText()
+            assertContains(diff, "name VARCHAR(255) NOT NULL")
+        } finally {
+            projectDirectory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `schema diff uses the in-memory Hibernate reference`() {
         val projectDirectory = Files.createTempDirectory("hibernate-schema-diff").toFile()
         try {
@@ -18,7 +50,9 @@ class HibernateSchemaDiffTaskTest {
                 projectDirectory.resolve("schema").apply {
                     check(mkdirs() || isDirectory)
                 }
-            schemaDirectory.resolve("Model.graphqls").writeText("type Group { id: ID! }")
+            schemaDirectory.resolve("Model.graphqls").writeText(
+                "interface Node { id: ID! } type Group implements Node { id: ID! }",
+            )
             val mappingFile = projectDirectory.resolve("orm.xml")
             mappingFile.writeText(mappingXml())
             val diffFile = projectDirectory.resolve("schema-diff/review.h2.sql")
@@ -34,7 +68,6 @@ class HibernateSchemaDiffTaskTest {
             task.mappingFile.set(mappingFile)
             task.modelClasspath.from(classpath())
             task.packageName.set("dev.viaduct.persistence.gradle")
-            task.includedTypeNames.set(listOf("Group"))
             task.implicitNamingStrategyClassName.set(ViaductImplicitNamingStrategy::class.java.name)
             task.physicalNamingStrategyClassName.set(ViaductPhysicalNamingStrategy::class.java.name)
             task.metadataCustomizerClassNames.set(emptyList())
@@ -65,12 +98,14 @@ class HibernateSchemaDiffTaskTest {
                 }
             schemaDirectory.resolve("Model.graphqls").writeText(
                 """
-                type Team {
+                interface Node { id: ID! }
+
+                type Team implements Node {
                   id: ID!
                   owner: Person!
                 }
 
-                type Person {
+                type Person implements Node {
                   id: ID!
                 }
                 """.trimIndent(),
@@ -90,7 +125,6 @@ class HibernateSchemaDiffTaskTest {
             task.mappingFile.set(mappingFile)
             task.modelClasspath.from(classpath())
             task.packageName.set("dev.viaduct.persistence.gradle")
-            task.includedTypeNames.set(listOf("Team", "Person"))
             task.implicitNamingStrategyClassName.set(ViaductImplicitNamingStrategy::class.java.name)
             task.physicalNamingStrategyClassName.set(ViaductPhysicalNamingStrategy::class.java.name)
             task.metadataCustomizerClassNames.set(emptyList())
@@ -143,6 +177,34 @@ class HibernateSchemaDiffTaskTest {
             .split(File.pathSeparator)
             .map(::File)
             .filter(File::exists)
+
+    private fun task(
+        projectDirectory: File,
+        schemaDirectory: File,
+        generated: File,
+        config: File,
+        diffFile: File,
+    ): HibernateSchemaDiffTask =
+        ProjectBuilder
+            .builder()
+            .withProjectDir(projectDirectory)
+            .build()
+            .tasks
+            .create("hibernateSemanticNotNullDiff", HibernateSchemaDiffTask::class.java)
+            .apply {
+                centralSchemaDirectory.set(schemaDirectory)
+                mappingFile.set(generated.resolve("resources/META-INF/orm.xml"))
+                modelClasspath.from(classpath())
+                packageName.set("dev.viaduct.persistence.gradle")
+                persistenceConfigFile.from(config)
+                implicitNamingStrategyClassName.set(ViaductImplicitNamingStrategy::class.java.name)
+                physicalNamingStrategyClassName.set(ViaductPhysicalNamingStrategy::class.java.name)
+                metadataCustomizerClassNames.set(emptyList())
+                targetUrl.set("jdbc:h2:mem:semantic-not-null;DB_CLOSE_DELAY=-1;MODE=PostgreSQL")
+                targetUsername.set("sa")
+                targetPassword.set("")
+                this.diffFile.set(diffFile)
+            }
 
     private fun mappingXml(): String =
         """

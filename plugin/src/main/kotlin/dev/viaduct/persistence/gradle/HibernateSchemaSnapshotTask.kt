@@ -38,11 +38,8 @@ abstract class HibernateSchemaSnapshotTask : DefaultTask() {
     @get:Input
     abstract val packageName: Property<String>
 
-    @get:Input
-    abstract val includedTypeNames: ListProperty<String>
-
     @get:InputFiles
-    abstract val relationshipConfigFile: ConfigurableFileCollection
+    abstract val persistenceConfigFile: ConfigurableFileCollection
 
     @get:Input
     abstract val implicitNamingStrategyClassName: Property<String>
@@ -57,7 +54,6 @@ abstract class HibernateSchemaSnapshotTask : DefaultTask() {
     abstract val snapshotFile: RegularFileProperty
 
     init {
-        includedTypeNames.convention(emptyList())
         metadataCustomizerClassNames.convention(emptyList())
     }
 
@@ -68,8 +64,7 @@ abstract class HibernateSchemaSnapshotTask : DefaultTask() {
         val semanticModel =
             PersistenceSchemaModelLoader.build(
                 centralSchemaDirectory.get().asFile,
-                includedTypeNames.get(),
-                relationshipConfigFile.files.singleOrNull(),
+                persistenceConfigFile.files.singleOrNull(),
             )
         val configuration =
             HibernateMetadataConfigurationFactory.create(

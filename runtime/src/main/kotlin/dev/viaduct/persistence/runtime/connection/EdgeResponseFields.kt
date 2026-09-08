@@ -2,10 +2,10 @@
 
 package dev.viaduct.persistence.runtime.connection
 import dev.viaduct.persistence.pggraphql.translation.PgGraphqlTranslation
+import dev.viaduct.persistence.runtime.db.toGRT
 import dev.viaduct.persistence.runtime.node.NodeReferenceResolver
 import dev.viaduct.persistence.runtime.reflection.GeneratedBuilder
 import dev.viaduct.persistence.runtime.reflection.GeneratedTypeReflection
-import dev.viaduct.persistence.runtime.reflection.toGRT
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject

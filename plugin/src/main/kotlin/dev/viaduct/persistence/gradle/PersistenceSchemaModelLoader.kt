@@ -2,6 +2,7 @@ package dev.viaduct.persistence.gradle
 
 import dev.viaduct.persistence.model.PersistenceModel
 import dev.viaduct.persistence.model.PersistenceModelBuilder
+import dev.viaduct.persistence.model.PersistenceModelPolicy
 import dev.viaduct.persistence.model.discoverPersistentTypeNames
 import dev.viaduct.persistence.model.validatePgGraphqlDbs
 import viaduct.graphql.schema.graphqljava.extensions.ViaductSchemaFactory
@@ -11,20 +12,30 @@ import java.io.File
 internal object PersistenceSchemaModelLoader {
     fun build(
         centralSchemaDirectory: File,
-        includedTypeNames: List<String>,
-        relationshipConfigFile: File?,
+        persistenceConfigFile: File?,
     ): PersistenceModel {
         val schemaFiles = schemaFiles(centralSchemaDirectory)
         val schema = ViaductSchemaFactory.fromTypeDefinitionRegistry(schemaFiles)
         validatePgGraphqlDbs(schema)
-        val persistentTypeNames =
-            includedTypeNames.toSet().ifEmpty { discoverPersistentTypeNames(schemaFiles, schema) }
-        val relationshipConfig = PersistenceRelationshipConfig.load(relationshipConfigFile)
+        val config = PersistenceConfig.load(persistenceConfigFile)
+        val discoveredTypeNames = discoverPersistentTypeNames(schemaFiles, schema)
+        val invalidDeniedTypes = config.deniedTypeNames - discoveredTypeNames
+        require(invalidDeniedTypes.isEmpty()) {
+            "${persistenceConfigFile?.path}: denyList.types contains types that are not eligible " +
+                "persistent GraphQL objects: ${invalidDeniedTypes.sorted().joinToString()}"
+        }
+        val persistentTypeNames = discoveredTypeNames - config.deniedTypeNames
         return PersistenceModelBuilder().build(
             schema = schema,
-            includedTypeNames = persistentTypeNames,
-            unidirectionalTargetForeignKeyFields = relationshipConfig.unidirectionalTargetForeignKeyFields.toSet(),
-            inverseFieldOverrides = relationshipConfig.inverseFieldOverrides,
+            selectedTypeNames = persistentTypeNames,
+            policy =
+                PersistenceModelPolicy(
+                    deniedTypeNames = config.deniedTypeNames,
+                    semanticNotNullTypeNames = config.semanticNotNullTypeNames,
+                    semanticNotNullFieldCoordinates = config.semanticNotNullFieldCoordinates,
+                    unidirectionalTargetForeignKeyFields = config.unidirectionalTargetForeignKeyFields,
+                    inverseFieldOverrides = config.inverseFieldOverrides,
+                ),
         )
     }
 

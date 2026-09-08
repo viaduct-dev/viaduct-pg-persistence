@@ -21,6 +21,11 @@ object PgGraphqlTranslation {
 
     fun restoreViaductResponseShape(response: JsonElement): JsonElement = responseShapeRestorer.restore(response)
 
+    fun restoreViaductResponsePath(
+        response: JsonElement,
+        path: List<JsonElement>,
+    ): List<JsonElement> = responseShapeRestorer.restorePath(response, path)
+
     fun buildRootQuery(
         field: String,
         arguments: String,

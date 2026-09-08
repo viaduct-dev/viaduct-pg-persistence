@@ -80,7 +80,10 @@ class CollectionRelationshipTest {
             PersistenceModelBuilder().build(
                 schema,
                 setOf("DiscordServerRoleGroup", "ExternalGroup"),
-                inverseFieldOverrides = mapOf("ExternalGroup.discordServerRoles" to "server"),
+                policy =
+                    PersistenceModelPolicy(
+                        inverseFieldOverrides = mapOf("ExternalGroup.discordServerRoles" to "server"),
+                    ),
             )
 
         val externalGroup = model.entities.single { it.graphqlName == "ExternalGroup" }
@@ -99,7 +102,10 @@ class CollectionRelationshipTest {
                 PersistenceModelBuilder().build(
                     schema,
                     setOf("DiscordServerRoleGroup", "ExternalGroup"),
-                    inverseFieldOverrides = mapOf("ExternalGroup.discordServerRoles" to "nonexistent"),
+                    policy =
+                        PersistenceModelPolicy(
+                            inverseFieldOverrides = mapOf("ExternalGroup.discordServerRoles" to "nonexistent"),
+                        ),
                 )
             }
         assertTrue(failure.message!!.contains("nonexistent"))
@@ -299,7 +305,10 @@ class CollectionRelationshipTest {
             PersistenceModelBuilder().build(
                 schema,
                 setOf("Group", "Person"),
-                unidirectionalTargetForeignKeyFields = setOf("Group.members"),
+                policy =
+                    PersistenceModelPolicy(
+                        unidirectionalTargetForeignKeyFields = setOf("Group.members"),
+                    ),
             )
         val members =
             model.entities

@@ -3,6 +3,7 @@ package dev.viaduct.persistence.pggraphql.translation
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
@@ -23,6 +24,18 @@ internal class ResponseShapeRestorer {
             else -> response
         }
 
+    /** Restores a pg_graphql error path with exactly the same transformations as its response data. */
+    @Suppress("ReturnCount")
+    fun restorePath(
+        response: JsonElement,
+        path: List<JsonElement>,
+    ): List<JsonElement> {
+        if (path.isEmpty()) return emptyList()
+        val marker = JsonObject(mapOf("__viaduct_error_path_marker__" to JsonPrimitive(true)))
+        val marked = response.replaceAt(path, marker) ?: return path
+        return findPath(restore(marked), marker) ?: path
+    }
+
     private fun restoreObject(response: JsonObject): JsonObject =
         JsonObject(
             response.entries.associate { (key, value) ->
@@ -31,6 +44,51 @@ internal class ResponseShapeRestorer {
                 restored.key to restored.value
             },
         )
+
+    @Suppress("ReturnCount")
+    private fun JsonElement.replaceAt(
+        path: List<JsonElement>,
+        replacement: JsonElement,
+    ): JsonElement? {
+        if (path.isEmpty()) return replacement
+        val head = path.first()
+        val tail = path.drop(1)
+        return when (this) {
+            is JsonObject -> {
+                val key = (head as? JsonPrimitive)?.content ?: return null
+                val child = get(key)?.replaceAt(tail, replacement) ?: return null
+                JsonObject(this + (key to child))
+            }
+            is JsonArray -> {
+                val index = (head as? JsonPrimitive)?.content?.toIntOrNull() ?: return null
+                if (index !in indices) return null
+                JsonArray(
+                    mapIndexed { current, value ->
+                        if (current == index) value.replaceAt(tail, replacement) ?: value else value
+                    },
+                )
+            }
+            else -> null
+        }
+    }
+
+    private fun findPath(
+        value: JsonElement,
+        target: JsonElement,
+    ): List<JsonElement>? {
+        if (value == target) return emptyList()
+        return when (value) {
+            is JsonObject ->
+                value.entries.firstNotNullOfOrNull { (key, child) ->
+                    findPath(child, target)?.let { listOf(JsonPrimitive(key)) + it }
+                }
+            is JsonArray ->
+                value.withIndex().firstNotNullOfOrNull { (index, child) ->
+                    findPath(child, target)?.let { listOf(JsonPrimitive(index)) + it }
+                }
+            else -> null
+        }
+    }
 }
 
 private class AssociationConnectionFieldRestorer : ResponseFieldRestorer {

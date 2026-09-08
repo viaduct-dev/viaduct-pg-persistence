@@ -29,13 +29,13 @@
     <Match>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
         <Class
-            name="~dev\.viaduct\.persistence\.(gradle\.(EffectiveModelRegistrar|HibernateDiffTaskRegistrar|HibernateSnapshotTaskRegistrar|KotlinPersistenceProjectConfigurator|PersistenceBuildLayout|PersistenceGenerationRegistrar|PersistenceRelationshipConfig|GenerateHibernateSchemaModelTask\$.*)|hibernate\.(HibernateMetadataHandle|OrmAttributeWriter|OrmEntityWriter|RelationshipProjection)|liquibase\.LiquibaseDatabaseSession|model\.(CollectionMappingContext|CollectionMappingResolver|PersistenceModelContext|RelationshipTargetResolverChain))"
+            name="~dev\.viaduct\.persistence\.(gradle\.(EffectiveModelRegistrar|HibernateDiffTaskRegistrar|HibernateSnapshotTaskRegistrar|KotlinPersistenceProjectConfigurator|PersistenceBuildLayout|PersistenceConfig|PersistenceGenerationRegistrar|GenerateHibernateSchemaModelTask\$.*)|hibernate\.(HibernateMetadataHandle|OrmAttributeWriter|OrmEntityWriter|RelationshipProjection)|liquibase\.LiquibaseDatabaseSession|model\.(CollectionMappingContext|CollectionMappingResolver|PersistenceModelContext|PersistenceModelPolicy|RelationshipTargetResolverChain))"
         />
     </Match>
     <Match>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
         <Class
-            name="~dev\.viaduct\.persistence\.runtime\.(connection\.(ConnectionShape|EdgeShape|PageInfoShape)|node\.NodeReferenceSelection|db\.(DbBatchFetcher|DbFetcher))"
+            name="~dev\.viaduct\.persistence\.runtime\.(connection\.(ConnectionShape|EdgeShape|PageInfoShape)|node\.NodeReferenceSelection|db\.(DbBatchFetcher|DbFetcher|DbResult|SemanticNotNullValidator|SemanticValidationRequest|UpstreamGraphqlError|UpstreamGraphqlException))"
         />
     </Match>
 

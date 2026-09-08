@@ -1,6 +1,7 @@
 package dev.viaduct.persistence.pggraphql.translation
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -246,6 +247,29 @@ class PgGraphqlTranslationTest {
         assertEquals(
             expectedAssociationResponse(),
             PgGraphqlTranslation.restoreViaductResponseShape(associationResponse()),
+        )
+    }
+
+    @Test
+    fun `restores error paths with the response shape`() {
+        val response = associationResponse()
+
+        val path =
+            PgGraphqlTranslation.restoreViaductResponsePath(
+                response,
+                listOf(
+                    JsonPrimitive("_viaduct_association_connection_members"),
+                    JsonPrimitive("_viaduct_association_edges_edges"),
+                    JsonPrimitive(0),
+                    JsonPrimitive("node"),
+                    JsonPrimitive("_viaduct_association_node_node"),
+                    JsonPrimitive("id"),
+                ),
+            )
+
+        assertEquals(
+            listOf("members", "edges", "0", "node", "id"),
+            path.map { it.toString().trim('"') },
         )
     }
 

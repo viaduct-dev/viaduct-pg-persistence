@@ -5,7 +5,6 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
@@ -25,9 +24,6 @@ abstract class GenerateHibernateSchemaModelTask : DefaultTask() {
     @get:Input
     abstract val packageName: Property<String>
 
-    @get:Input
-    abstract val includedTypeNames: ListProperty<String>
-
     @get:InputFile
     @get:Optional
     abstract val replacementOrmXml: RegularFileProperty
@@ -36,10 +32,9 @@ abstract class GenerateHibernateSchemaModelTask : DefaultTask() {
     abstract val associationSchemaName: Property<String>
 
     @get:InputFiles
-    abstract val relationshipConfigFile: ConfigurableFileCollection
+    abstract val persistenceConfigFile: ConfigurableFileCollection
 
     init {
-        includedTypeNames.convention(emptyList())
         associationSchemaName.convention(
             HibernateSchemaModelWriter.DEFAULT_ASSOCIATION_SCHEMA,
         )
@@ -50,8 +45,7 @@ abstract class GenerateHibernateSchemaModelTask : DefaultTask() {
         val model =
             PersistenceSchemaModelLoader.build(
                 centralSchemaDirectory = centralSchemaDirectory.get().asFile,
-                includedTypeNames = includedTypeNames.get(),
-                relationshipConfigFile = relationshipConfigFile.files.singleOrNull(),
+                persistenceConfigFile = persistenceConfigFile.files.singleOrNull(),
             )
         HibernateSchemaModelWriter().write(
             model = model,

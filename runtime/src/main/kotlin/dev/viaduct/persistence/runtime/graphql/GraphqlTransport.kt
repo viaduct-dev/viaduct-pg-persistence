@@ -1,5 +1,9 @@
 package dev.viaduct.persistence.runtime.graphql
 import dev.viaduct.persistence.runtime.db.DbRequestHeaders
+import dev.viaduct.persistence.runtime.db.DbResult
+import dev.viaduct.persistence.runtime.db.UpstreamGraphqlError
+import dev.viaduct.persistence.runtime.db.UpstreamGraphqlException
+import dev.viaduct.persistence.runtime.db.UpstreamGraphqlLocation
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -10,9 +14,13 @@ import io.ktor.http.content.TextContent
 import io.ktor.util.reflect.typeInfo
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** A prepared GraphQL operation and the response field that contains its result. */
 internal data class GraphqlQuery(
@@ -33,6 +41,15 @@ internal class PgGraphqlTransport(
         context: viaduct.api.context.ExecutionContext,
         query: GraphqlQuery,
     ): JsonObject {
+        val result = executeResult(context, query)
+        if (result.errors.isNotEmpty()) throw UpstreamGraphqlException(result.errors)
+        return result.data ?: error("Db response did not include '${query.responseKey}'")
+    }
+
+    suspend fun executeResult(
+        context: viaduct.api.context.ExecutionContext,
+        query: GraphqlQuery,
+    ): DbResult<JsonObject> {
         val response =
             httpClient.post(endpoint) {
                 requestHeaders.forContext(context).forEach { (name, value) ->
@@ -51,10 +68,30 @@ internal class PgGraphqlTransport(
                 )
             }
         val envelope = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        envelope["errors"]?.let { error("Db fetch failed: $it") }
-        return envelope["data"]?.jsonObject?.get(query.responseKey)?.jsonObject
-            ?: error("Db response did not include '${query.responseKey}'")
+        val data =
+            (envelope["data"] as? JsonObject)
+                ?.get(query.responseKey) as? JsonObject
+        val errors =
+            (envelope["errors"] as? JsonArray)
+                ?.map { parseError(it.jsonObject) }
+                .orEmpty()
+        return DbResult(data, errors)
     }
+
+    private fun parseError(error: JsonObject): UpstreamGraphqlError =
+        UpstreamGraphqlError(
+            message = error["message"]?.jsonPrimitive?.contentOrNull ?: "Unknown upstream GraphQL error",
+            path = error["path"]?.jsonArray?.toList().orEmpty(),
+            locations =
+                (error["locations"] as? JsonArray)
+                    ?.mapNotNull { location ->
+                        val value = location as? JsonObject ?: return@mapNotNull null
+                        val line = value["line"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+                        val column = value["column"]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+                        if (line == null || column == null) null else UpstreamGraphqlLocation(line, column)
+                    }.orEmpty(),
+            extensions = error["extensions"] as? JsonObject ?: JsonObject(emptyMap()),
+        )
 }
 
 @Serializable
