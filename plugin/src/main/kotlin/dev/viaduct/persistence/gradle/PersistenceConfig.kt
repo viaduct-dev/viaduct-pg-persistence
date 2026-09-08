@@ -1,6 +1,8 @@
 package dev.viaduct.persistence.gradle
 
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.error.YAMLException
 import java.io.File
 
 /** Schema-adjacent persistence policy loaded from YAML. */
@@ -15,7 +17,14 @@ internal data class PersistenceConfig(
         fun load(file: File?): PersistenceConfig {
             if (file == null || !file.exists() || file.readText().isBlank()) return PersistenceConfig()
             val path = file.path
-            val root = map(Yaml().load<Any?>(file.readText()), path, "document")
+            val loaderOptions = LoaderOptions().apply { isAllowDuplicateKeys = false }
+            val document =
+                try {
+                    Yaml(loaderOptions).load<Any?>(file.readText())
+                } catch (exception: YAMLException) {
+                    throw IllegalArgumentException("$path: invalid YAML: ${exception.message}", exception)
+                }
+            val root = map(document, path, "document")
             root.requireOnly(path, "document", setOf("denyList", "semanticNotNull", "relationships"))
 
             val denyList = optionalMap(root["denyList"], path, "denyList")

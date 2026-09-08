@@ -66,17 +66,10 @@ internal class DbFetcher(
                 PgGraphqlTranslation.restoreViaductResponseShape(it).jsonObject
             }
         val restoredErrors =
-            result.errors.map { error ->
-                val rawPath = error.path.drop(1)
-                val restoredPath =
-                    result.data?.let {
-                        PgGraphqlTranslation.restoreViaductResponsePath(it, rawPath)
-                    } ?: rawPath
-                error.copy(path = listOf(kotlinx.serialization.json.JsonPrimitive(query.responseKey)) + restoredPath)
-            }
+            result.errors.map { error -> restoreErrorPath(error, query.responseKey) }
         val data =
             if (restoredEnvelope != null && dbRead.root.singleViaFilteredCollection) {
-                DbResponseReader.firstNode(restoredEnvelope, dbRead.root.responseKey)
+                DbResponseReader.firstNodeOrNull(restoredEnvelope)
             } else {
                 restoredEnvelope
             }
@@ -100,6 +93,18 @@ internal class DbFetcher(
                 )
             } ?: normalizedErrors
         return DbResult(data, errors)
+    }
+
+    private fun restoreErrorPath(
+        error: UpstreamGraphqlError,
+        responseKey: String,
+    ): UpstreamGraphqlError {
+        if (error.path.isEmpty()) return error
+        val root = kotlinx.serialization.json.JsonPrimitive(responseKey)
+        val hasRoot = error.path.first() == root
+        val rawPath = if (hasRoot) error.path.drop(1) else error.path
+        val restoredPath = PgGraphqlTranslation.restoreViaductResponsePath(rawPath)
+        return error.copy(path = if (hasRoot) listOf(root) + restoredPath else restoredPath)
     }
 
     private fun semanticValidator(classLoader: ClassLoader): SemanticNotNullValidator =

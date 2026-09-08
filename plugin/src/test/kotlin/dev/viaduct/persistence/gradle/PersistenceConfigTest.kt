@@ -61,6 +61,34 @@ class PersistenceConfigTest {
         }
     }
 
+    @Test
+    fun `rejects duplicate YAML mapping keys`() {
+        assertFailsWith<IllegalArgumentException> {
+            PersistenceConfig.load(
+                yaml(
+                    """
+                    denyList:
+                      types: [Group]
+                    denyList:
+                      types: [Person]
+                    """,
+                ),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PersistenceConfig.load(
+                yaml(
+                    """
+                    relationships:
+                      inverseFieldOverrides:
+                        Group.members: group
+                        Group.members: owner
+                    """,
+                ),
+            )
+        }
+    }
+
     private fun yaml(contents: String) =
         Files.createTempFile("persistence-config", ".yaml").toFile().apply {
             writeText(contents.trimIndent())

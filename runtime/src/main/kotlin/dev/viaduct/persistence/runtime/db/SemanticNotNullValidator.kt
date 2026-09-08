@@ -76,7 +76,7 @@ internal class SemanticNotNullValidator(
                     fragments[selection.name]?.let {
                         visit(
                             it.selectionSet,
-                            parentType,
+                            it.typeCondition?.name ?: parentType,
                             values,
                             fragments,
                             schema,
@@ -184,15 +184,19 @@ internal object SemanticNotNullCoordinates {
         }
 
     private fun loadUncached(classLoader: ClassLoader): Set<String> =
-        classLoader
-            .getResources(RESOURCE)
-            .toList()
-            .flatMap { resource ->
-                resource
-                    .readText()
-                    .lineSequence()
-                    .map(String::trim)
-                    .filter(String::isNotEmpty)
-                    .toList()
-            }.toSet()
+        classLoader.getResources(RESOURCE).toList().let { resources ->
+            check(resources.size <= 1) {
+                "Multiple Viaduct persistence semantic-nullability policies are visible to one DbClient; " +
+                    "use a classloader scoped to one persistence module"
+            }
+            resources
+                .flatMap { resource ->
+                    resource
+                        .readText()
+                        .lineSequence()
+                        .map(String::trim)
+                        .filter(String::isNotEmpty)
+                        .toList()
+                }.toSet()
+        }
 }

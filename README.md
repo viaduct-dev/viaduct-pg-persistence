@@ -405,6 +405,10 @@ explains its response path, while an unexplained null adds a `SEMANTIC_NON_NULL_
 Existing rows must still satisfy the database constraint before its reviewed schema-diff migration
 is applied.
 
+A `DbClient` classloader must expose at most one generated semantic-nullability policy. This keeps
+coordinates from separate persistence modules from being combined accidentally; applications with
+multiple policies must isolate their clients by classloader.
+
 #### Relationship Overrides
 
 The `relationships` section replaces the former relationship-only YAML file. Use
