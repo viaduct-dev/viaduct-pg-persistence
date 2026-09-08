@@ -40,6 +40,9 @@ class HibernateSchemaModelWriter {
             persistenceWriter.document(model, packageName, options.persistenceUnitName),
             resourcesDirectory.resolve("persistence.xml"),
         )
+        resourcesDirectory.resolve("viaduct-persistence-semantic-not-null.txt").writeText(
+            model.semanticNotNullCoordinates.sorted().joinToString(separator = "\n", postfix = "\n"),
+        )
         val mappingDestination = resourcesDirectory.resolve("orm.xml")
         if (options.replacementOrmXml == null) {
             HibernateXmlDocuments.write(

@@ -32,10 +32,9 @@ internal class PersistenceGenerationRegistrar(
                 it.centralSchemaDirectory.set(extension.centralSchemaDirectory)
                 it.outputDirectory.set(layout.generatedRoot)
                 it.packageName.set(extension.packageName)
-                it.includedTypeNames.set(extension.includedTypeNames)
                 it.replacementOrmXml.set(extension.replacementOrmXml)
                 it.associationSchemaName.set(extension.associationSchemaName)
-                it.relationshipConfigFile.from(extension.relationshipConfigFile)
+                it.persistenceConfigFile.from(extension.persistenceConfigFile)
             }
         wireGeneratedSources(validate, generate)
     }

@@ -39,8 +39,8 @@ internal object ViaductPersistenceExtensionDefaults {
                 physicalNamingStrategyClassName.convention(
                     ViaductPhysicalNamingStrategy::class.java.name,
                 )
-                relationshipConfigFile.convention(
-                    project.layout.projectDirectory.file("src/main/viaduct/persistence-relationships.yaml"),
+                persistenceConfigFile.convention(
+                    project.layout.projectDirectory.file("src/main/viaduct/persistence.yaml"),
                 )
             }
 }

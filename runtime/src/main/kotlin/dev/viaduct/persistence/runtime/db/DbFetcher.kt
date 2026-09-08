@@ -16,6 +16,7 @@ import viaduct.api.select.SelectionSet
 import viaduct.api.types.CompositeOutput
 import viaduct.api.types.NodeObject
 import viaduct.api.types.Query
+import java.util.WeakHashMap
 
 /** Executes typed db reads and hydrates requested node references. */
 internal class DbFetcher(
@@ -25,23 +26,88 @@ internal class DbFetcher(
     private val nodeReferencePlanner: NodeReferencePlanner,
     private val nodeReferenceHydrator: NodeReferenceHydrator,
 ) {
+    private val semanticValidators = WeakHashMap<ClassLoader, SemanticNotNullValidator>()
+
     suspend fun <T : CompositeOutput> fetch(
         context: ExecutionContext,
         dbRead: DbRead,
         selections: SelectionSet<T>,
-    ): T = fetchJson(context, dbRead, selections).toGRT(context, selections)
+    ): T = fetchResult(context, dbRead, selections).strict(dbRead.root.responseKey)
+
+    suspend fun <T : CompositeOutput> fetchResult(
+        context: ExecutionContext,
+        dbRead: DbRead,
+        selections: SelectionSet<T>,
+    ): DbResult<T> {
+        val result = fetchJsonResult(context, dbRead, selections)
+        return DbResult(result.data?.toGRT(context, selections), result.errors)
+    }
 
     /** Fetches the raw pg_graphql JSON for [selections], without converting it to a GRT. */
     suspend fun <T : CompositeOutput> fetchJson(
         context: ExecutionContext,
         dbRead: DbRead,
         selections: SelectionSet<T>,
-    ): JsonObject {
+    ): JsonObject = fetchJsonResult(context, dbRead, selections).strict(dbRead.root.responseKey)
+
+    suspend fun <T : CompositeOutput> fetchJsonResult(
+        context: ExecutionContext,
+        dbRead: DbRead,
+        selections: SelectionSet<T>,
+    ): DbResult<JsonObject> {
         if (selections.isEmpty()) {
-            return buildJsonObject { put("__typename", selections.type.name) }
+            return DbResult(buildJsonObject { put("__typename", selections.type.name) })
         }
-        return fetchJsonForRoot(context, dbRead.root, selections)
+        val query = queryPlanner.plan(dbRead.root, selections)
+        val translationSchema = typeReflection.translationSchema(selections.type)
+        val result = transport.executeResult(context, query)
+        val restoredEnvelope =
+            result.data?.let {
+                PgGraphqlTranslation.restoreViaductResponseShape(it).jsonObject
+            }
+        val restoredErrors =
+            result.errors.map { error ->
+                val rawPath = error.path.drop(1)
+                val restoredPath =
+                    result.data?.let {
+                        PgGraphqlTranslation.restoreViaductResponsePath(it, rawPath)
+                    } ?: rawPath
+                error.copy(path = listOf(kotlinx.serialization.json.JsonPrimitive(query.responseKey)) + restoredPath)
+            }
+        val data =
+            if (restoredEnvelope != null && dbRead.root.singleViaFilteredCollection) {
+                DbResponseReader.firstNode(restoredEnvelope, dbRead.root.responseKey)
+            } else {
+                restoredEnvelope
+            }
+        val normalizedErrors =
+            if (dbRead.root.singleViaFilteredCollection) {
+                restoredErrors.map { it.copy(path = DbResponseReader.unwrapFirstNodePath(it.path)) }
+            } else {
+                restoredErrors
+            }
+        val errors =
+            data?.let {
+                semanticValidator(selections.type.kcls.java.classLoader).validate(
+                    SemanticValidationRequest(
+                        data = it,
+                        errors = normalizedErrors,
+                        document = selections.toFragment().document,
+                        rootType = selections.type.name,
+                        rootResponseKey = query.responseKey,
+                        schema = translationSchema,
+                    ),
+                )
+            } ?: normalizedErrors
+        return DbResult(data, errors)
     }
+
+    private fun semanticValidator(classLoader: ClassLoader): SemanticNotNullValidator =
+        synchronized(semanticValidators) {
+            semanticValidators.getOrPut(classLoader) {
+                SemanticNotNullValidator(SemanticNotNullCoordinates.load(classLoader))
+            }
+        }
 
     suspend fun <T> fetchNode(
         context: ResolverExecutionContext<out Query>,

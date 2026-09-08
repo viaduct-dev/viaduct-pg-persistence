@@ -23,7 +23,10 @@ val client = DbClient(
 `DbClient` provides:
 
 - `fetch` for an explicit db root and owned selection set. Shortcut for `fetchJson` + `toGRT`.
+- `fetchResult` for partial typed data together with structured upstream GraphQL errors.
 - `fetchJson` for the same read, returning the raw pg_graphql JSON without converting it to a GRT.
+- `fetchJsonResult` for partial JSON together with upstream error messages, paths, locations, and
+  extensions.
 - `toGRT` (an extension on the `JsonObject` result) to convert JSON — from `fetchJson`, a cache, or
   any other source — into the generated Viaduct value for a typed selection set.
 - `fetchNode` for results that also need requested node references.
@@ -32,10 +35,10 @@ val client = DbClient(
 - `fetchUuidConnection` for caller-managed `first`/`after` or `last`/`before` pagination.
 - `fetchNestedUuidConnections` for one paginated child connection per parent in one request.
 
-Fetching and converting are separate, explicit steps rather than one fused operation: `fetch` is
-built from `fetchJson` and `toGRT`, not the other way around. Reach for the two parts directly when
-you need the JSON on its own — inspecting a response before conversion, or converting JSON obtained
-some other way:
+The result-returning operation is the canonical fetch path. The strict `fetch` and `fetchJson`
+operations are adapters that throw `UpstreamGraphqlException` when that result contains errors.
+Reach for the JSON operation directly when you need to inspect a response before conversion, or to
+convert JSON obtained some other way:
 
 ```kotlin
 val json = client.fetchJson(ctx, dbRead, selections)
@@ -47,6 +50,12 @@ query translation, transport execution, GraphQL error propagation, response rest
 mapping, and node-reference hydration. A generated `ConnectionBuilder` with a compatibility
 `nodes` field or an `edges { node }` shape is recognized structurally, so nested connections and
 ordinary domain fields named `nodes` remain schema-safe without translation metadata.
+
+Result operations preserve partial data and structured errors. Error paths are restored through
+the same response-shape transformation as data, including association rows and filtered single-row
+lookups. They are not automatically installed into Viaduct's field-error channel: a resolver that
+returns partial data must translate the returned errors at its execution boundary. The strict
+operations intentionally throw instead and therefore do not retain partial data.
 
 When a connection uses a join table, the pg_graphql path resolver uses the real
 `<fieldName>Associations` relationship (for example, `membersAssociations`), even when the edge

@@ -45,6 +45,9 @@ internal interface PersistenceAttributeStrategy {
     fun tryBuild(context: PersistenceAttributeContext): PersistenceAttributeDecision?
 }
 
+private val PersistenceAttributeContext.nullable: Boolean
+    get() = field.type.isNullable && !modelContext.isSemanticallyNonNull(source, field)
+
 internal class ToManyAttributeStrategy : PersistenceAttributeStrategy {
     override fun tryBuild(context: PersistenceAttributeContext): PersistenceAttributeDecision? =
         context.relationship
@@ -62,7 +65,7 @@ internal class ToManyAttributeStrategy : PersistenceAttributeStrategy {
                 PersistenceAttributeDecision.Add(
                     PersistenceToManyAttribute(
                         name = context.field.name,
-                        nullable = context.field.type.isNullable,
+                        nullable = context.nullable,
                         targetTypeName = relationship.targetName,
                         inverseFieldName = mapping.inverseFieldName,
                         storage = mapping.storage,
@@ -81,7 +84,7 @@ internal class ToOneAttributeStrategy : PersistenceAttributeStrategy {
                 PersistenceAttributeDecision.Add(
                     PersistenceToOneAttribute(
                         name = context.field.name,
-                        nullable = context.field.type.isNullable,
+                        nullable = context.nullable,
                         targetTypeName = relationship.targetName,
                         idOfDirected = relationship.idOfDirected,
                     ),
@@ -104,7 +107,7 @@ internal class GraphqlIdAttributeStrategy(
             PersistenceAttributeDecision.Add(
                 PersistenceBasicAttribute(
                     name = "id",
-                    nullable = context.field.type.isNullable,
+                    nullable = context.nullable,
                     kotlinType = if (generatedGlobalId) "String" else "java.util.UUID",
                 ),
             )
@@ -139,7 +142,7 @@ internal class BasicAttributeStrategy : PersistenceAttributeStrategy {
         return PersistenceAttributeDecision.Add(
             PersistenceBasicAttribute(
                 name = context.field.name,
-                nullable = context.field.type.isNullable,
+                nullable = context.nullable,
                 kotlinType = enumTypeName?.let(::enumClassName) ?: basicType,
                 enumTypeName = enumTypeName,
                 collection = context.field.type.isList,

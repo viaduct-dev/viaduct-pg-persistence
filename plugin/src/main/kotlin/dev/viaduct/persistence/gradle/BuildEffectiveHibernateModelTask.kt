@@ -28,11 +28,8 @@ abstract class BuildEffectiveHibernateModelTask : DefaultTask() {
     @get:InputDirectory
     abstract val centralSchemaDirectory: DirectoryProperty
 
-    @get:Input
-    abstract val includedTypeNames: ListProperty<String>
-
     @get:InputFiles
-    abstract val relationshipConfigFile: ConfigurableFileCollection
+    abstract val persistenceConfigFile: ConfigurableFileCollection
 
     @get:InputFile
     abstract val mappingFile: RegularFileProperty
@@ -59,7 +56,6 @@ abstract class BuildEffectiveHibernateModelTask : DefaultTask() {
 
     init {
         metadataCustomizerClassNames.convention(emptyList())
-        includedTypeNames.convention(emptyList())
     }
 
     @TaskAction
@@ -67,8 +63,7 @@ abstract class BuildEffectiveHibernateModelTask : DefaultTask() {
         val semanticModel =
             PersistenceSchemaModelLoader.build(
                 centralSchemaDirectory = centralSchemaDirectory.get().asFile,
-                includedTypeNames = includedTypeNames.get(),
-                relationshipConfigFile = relationshipConfigFile.files.singleOrNull(),
+                persistenceConfigFile = persistenceConfigFile.files.singleOrNull(),
             )
         val output = outputDirectory.get().asFile
         output.deleteRecursively()

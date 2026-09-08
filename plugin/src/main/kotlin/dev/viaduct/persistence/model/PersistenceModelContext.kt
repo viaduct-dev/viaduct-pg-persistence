@@ -5,8 +5,7 @@ import viaduct.graphql.schema.ViaductSchema
 internal class PersistenceModelContext(
     val includedObjects: Map<String, ViaductSchema.Object>,
     val schemaObjects: Map<String, ViaductSchema.Object> = includedObjects,
-    val unidirectionalTargetForeignKeyFields: Set<String>,
-    val inverseFieldOverrides: Map<String, String> = emptyMap(),
+    private val policy: PersistenceModelPolicy = PersistenceModelPolicy(),
     private val relationshipTargetResolver: RelationshipTargetResolver =
         RelationshipTargetResolverChain(),
     private val collectionMappingResolver: CollectionMappingResolver = CollectionMappingResolver(),
@@ -15,6 +14,58 @@ internal class PersistenceModelContext(
     private val edgeMappingFactory = PersistenceEdgeMappingFactory()
     private val edgeMappings = linkedMapOf<String, PersistenceEdgeMapping?>()
     private val buildingEdgeMappings = mutableSetOf<String>()
+    val unidirectionalTargetForeignKeyFields: Set<String>
+        get() = policy.unidirectionalTargetForeignKeyFields
+
+    fun isSemanticallyNonNull(
+        type: ViaductSchema.Object,
+        field: ViaductSchema.Field,
+    ): Boolean =
+        !field.hasAppliedDirective("resolver") &&
+            relationships(type)[field]?.collection != true &&
+            (
+                type.name in policy.semanticNotNullTypeNames ||
+                    "${type.name}.${field.name}" in policy.semanticNotNullFieldCoordinates
+            )
+
+    fun validateSemanticNotNullCoordinates() {
+        val coordinatePattern = Regex("[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*")
+        policy.semanticNotNullTypeNames.forEach { typeName ->
+            require(typeName in includedObjects) {
+                "semanticNotNull.types contains '$typeName', which is not a persistent object type"
+            }
+        }
+        policy.semanticNotNullFieldCoordinates.forEach { coordinate ->
+            require(coordinatePattern.matches(coordinate)) {
+                "semanticNotNull.fields contains malformed field coordinate '$coordinate'"
+            }
+            val (typeName, fieldName) = coordinate.split('.', limit = 2)
+            val type = includedObjects[typeName]
+            requireNotNull(type) {
+                "semanticNotNull.fields contains '$coordinate', but '$typeName' is not persistent"
+            }
+            val field = type.fields.singleOrNull { it.name == fieldName }
+            requireNotNull(field) { "semanticNotNull.fields contains unknown field '$coordinate'" }
+            require(!field.hasAppliedDirective("resolver")) {
+                "semanticNotNull.fields contains resolver-only field '$coordinate'"
+            }
+            require(relationships(type)[field]?.collection != true) {
+                "semanticNotNull.fields contains '$coordinate', but it is a to-many relationship"
+            }
+        }
+    }
+
+    fun semanticNotNullCoordinates(): Set<String> =
+        buildSet {
+            addAll(policy.semanticNotNullFieldCoordinates)
+            policy.semanticNotNullTypeNames.forEach { typeName ->
+                includedObjects
+                    .getValue(typeName)
+                    .fields
+                    .filter { field -> isSemanticallyNonNull(includedObjects.getValue(typeName), field) }
+                    .mapTo(this) { field -> "$typeName.${field.name}" }
+            }
+        }
 
     fun relationships(type: ViaductSchema.Object): Map<ViaductSchema.Field, PersistenceRelationshipTarget?> =
         type.fields.associateWith { field ->
@@ -55,7 +106,7 @@ internal class PersistenceModelContext(
                 sourceCollections = relatedFields(source, target.name, collection = true),
                 inverseToOneFields = inverseToOneFields(source, sourceField, target),
                 inverseCollections = relatedFields(target, source.name, collection = true),
-                unidirectionalTargetForeignKeyFields = unidirectionalTargetForeignKeyFields,
+                unidirectionalTargetForeignKeyFields = policy.unidirectionalTargetForeignKeyFields,
                 hasPersistedEdgeFields = hasPersistedEdgeFields,
                 sourceEdgeMappings = edgeMappings(source),
                 inverseEdgeMappings = edgeMappings(target),
@@ -81,7 +132,7 @@ internal class PersistenceModelContext(
         target: ViaductSchema.Object,
     ): List<ViaductSchema.Field> {
         val candidates = relatedFields(target, source.name, collection = false)
-        val overrideFieldName = inverseFieldOverrides["${source.name}.${sourceField.name}"] ?: return candidates
+        val overrideFieldName = policy.inverseFieldOverrides["${source.name}.${sourceField.name}"] ?: return candidates
         val matched = candidates.singleOrNull { it.name == overrideFieldName }
         requireNotNull(matched) {
             "inverseFieldOverrides[\"${source.name}.${sourceField.name}\"] = \"$overrideFieldName\" does not " +

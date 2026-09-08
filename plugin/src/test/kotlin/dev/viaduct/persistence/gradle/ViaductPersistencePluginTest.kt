@@ -2,13 +2,46 @@ package dev.viaduct.persistence.gradle
 
 import dev.viaduct.persistence.io.ensureDirectory
 import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.TaskOutcome
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ViaductPersistencePluginTest {
+    @Test
+    fun `persistence YAML changes invalidate generation and update mappings`() {
+        val projectDirectory = Files.createTempDirectory("viaduct-persistence-policy-input").toFile()
+        try {
+            writeConsumerFiles(projectDirectory, "policy-input-consumer", effectiveBuildScript())
+            writeSchema(
+                projectDirectory,
+                "interface Node { id: ID! } type Group implements Node { id: ID!, name: String }",
+            )
+
+            val first = runGradle(projectDirectory, "generateViaductPersistenceModel")
+            assertEquals(TaskOutcome.SUCCESS, first.task(":generateViaductPersistenceModel")?.outcome)
+            val second = runGradle(projectDirectory, "generateViaductPersistenceModel")
+            assertEquals(TaskOutcome.UP_TO_DATE, second.task(":generateViaductPersistenceModel")?.outcome)
+
+            val config = projectDirectory.resolve("src/main/viaduct/persistence.yaml")
+            config.parentFile.ensureDirectory()
+            config.writeText("semanticNotNull:\n  fields: [Group.name]\n")
+            val third = runGradle(projectDirectory, "generateViaductPersistenceModel")
+
+            assertEquals(TaskOutcome.SUCCESS, third.task(":generateViaductPersistenceModel")?.outcome)
+            val mapping =
+                projectDirectory
+                    .resolve("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
+                    .readText()
+            assertContains(mapping, "<column name=\"name\" nullable=\"false\"/>")
+        } finally {
+            projectDirectory.deleteRecursively()
+        }
+    }
+
     @Test
     fun `generates effective metadata in a synthetic consumer`() {
         val projectDirectory =

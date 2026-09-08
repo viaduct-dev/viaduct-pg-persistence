@@ -8,6 +8,7 @@ import io.ktor.http.headersOf
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonPrimitive
 import viaduct.api.context.ExecutionContext
 import viaduct.api.reflect.Type
@@ -17,8 +18,56 @@ import viaduct.api.types.NodeObject
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 class DbClientFetchJsonTest {
+    @Test
+    fun `fetchJsonResult preserves partial data and structured upstream errors`() =
+        runBlocking {
+            val selections = mockk<SelectionSet<FetchJsonFixtureNode>>()
+            every { selections.isEmpty() } returns false
+            every { selections.type } returns FetchJsonFixtureType
+            every { selections.toFragment() } returns
+                OutputSelectionFragment(
+                    "Main",
+                    "fragment Main on FetchJsonFixtureNode { status }",
+                    emptyMap(),
+                )
+            val engine =
+                MockEngine {
+                    respond(
+                        content =
+                            """
+                            {
+                              "data": {"group": {"status": null}},
+                              "errors": [{
+                                "message": "status failed",
+                                "path": ["group", "status"],
+                                "locations": [{"line": 1, "column": 8}],
+                                "extensions": {"code": "UPSTREAM"}
+                              }]
+                            }
+                            """.trimIndent(),
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            val client = DbClient(HttpClient(engine), "https://example.test/graphql/v1")
+
+            val result =
+                client.fetchJsonResult(
+                    mockk<ExecutionContext>(),
+                    DbRead(DbRoot("group")),
+                    selections,
+                )
+
+            assertIs<JsonNull>(result.data?.get("status"))
+            val error = result.errors.single()
+            assertEquals("status failed", error.message)
+            assertEquals(listOf("group", "status"), error.path.map { it.jsonPrimitive.content })
+            assertEquals(UpstreamGraphqlLocation(1, 8), error.locations.single())
+            assertEquals("UPSTREAM", error.extensions["code"]?.jsonPrimitive?.content)
+        }
+
     @Test
     fun `fetchJson returns raw pg_graphql JSON without converting it to a GRT`() =
         runBlocking {
@@ -46,6 +95,48 @@ class DbClientFetchJsonTest {
             val json = client.fetchJson(mockk<ExecutionContext>(), DbRead(DbRoot("group")), selections)
 
             assertEquals("ACTIVE", json["status"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `filtered single result validates and returns paths after unwrapping the node`() =
+        runBlocking {
+            val selections = mockk<SelectionSet<FetchJsonFixtureNode>>()
+            every { selections.isEmpty() } returns false
+            every { selections.type } returns FetchJsonFixtureType
+            every { selections.toFragment() } returns
+                OutputSelectionFragment(
+                    "Main",
+                    "fragment Main on FetchJsonFixtureNode { status }",
+                    emptyMap(),
+                )
+            val engine =
+                MockEngine {
+                    respond(
+                        content =
+                            """
+                            {"data":{"group":{"edges":[{"node":{"status":null}}]}},
+                             "errors":[{"message":"failed","path":["group","edges",0,"node","status"]}]}
+                            """.trimIndent(),
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            val client = DbClient(HttpClient(engine), "https://example.test/graphql/v1")
+
+            val result =
+                client.fetchJsonResult(
+                    mockk<ExecutionContext>(),
+                    DbRead(DbRoot("group", singleViaFilteredCollection = true)),
+                    selections,
+                )
+
+            assertIs<JsonNull>(result.data?.get("status"))
+            assertEquals(
+                listOf("group", "status"),
+                result.errors
+                    .single()
+                    .path
+                    .map { it.jsonPrimitive.content },
+            )
         }
 }
 

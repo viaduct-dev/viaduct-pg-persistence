@@ -74,15 +74,15 @@ interface is persistent by default, and object references describe relationships
 
 ```graphql
 type Group implements Node {
-  id: ID!
-  name: String!
-  members: [GroupMember!]!
+  id: ID
+  name: String
+  members: [GroupMember]
 }
 
 type GroupMember implements Node {
-  id: ID!
-  group: Group!
-  displayName: String!
+  id: ID
+  group: Group
+  displayName: String
 }
 ```
 
@@ -176,20 +176,20 @@ framework-provided `Node` interface is persistent.
 
 ```graphql
 type Group implements Node {
-  id: ID!
-  name: String!
-  members: [GroupMember!]!
+  id: ID
+  name: String
+  members: [GroupMember]
 }
 
 type GroupMember implements Node {
-  id: ID!
-  group: Group!
-  person: Person!
+  id: ID
+  group: Group
+  person: Person
 }
 
 type Person implements Node {
-  id: ID!
-  displayName: String!
+  id: ID
+  displayName: String
 }
 ```
 
@@ -204,7 +204,7 @@ accompanying object reference:
 
 ```graphql
 type Person implements Node {
-  id: ID!
+  id: ID
   groupId: ID @idOf(type: "Group")
 }
 ```
@@ -219,21 +219,21 @@ persistent entity; the persistence model follows `edges.node` to identify the ta
 
 ```graphql
 type Group implements Node {
-  id: ID!
-  members: PersonConnection!
+  id: ID
+  members: PersonConnection
 }
 
 type Person implements Node {
-  id: ID!
+  id: ID
 }
 
 type PersonConnection @connection {
-  edges: [PersonEdge!]!
-  pageInfo: PageInfo!
+  edges: [PersonEdge]
+  pageInfo: PageInfo
 }
 
 type PersonEdge @edge {
-  node: Person!
+  node: Person
 }
 ```
 
@@ -318,11 +318,105 @@ externally backed types on equal footing with database-backed ones — same modu
 Kotlin dependency rules, and resolver ownership — rather than relying on a filename convention to
 exclude them from a database they were never going to belong to.
 
-To use an explicit allowlist instead of discovery:
+### Persistence Policy YAML
+
+Persistence policy lives next to the schema in the optional
+`src/main/viaduct/persistence.yaml` file. With no file, every eligible `Node` object discovered in
+an ordinary schema file is persisted. Policy values do not belong in the Gradle build script.
+
+The complete file shape is:
+
+```yaml
+denyList:
+  types:
+    - ExternalProfile
+
+semanticNotNull:
+  types:
+    - Group
+  fields:
+    - Person.displayName
+    - GroupMember.person
+
+relationships:
+  unidirectionalTargetForeignKeyFields:
+    - Group.members
+  inverseFieldOverrides:
+    ExternalGroup.discordServerRoles: server
+```
+
+The YAML is strictly validated. Unknown keys, values of the wrong YAML type, duplicate list entries,
+unknown coordinates, and coordinates that do not apply to a persistent object fail generation.
+
+#### Denylisting Types
+
+`denyList.types` is subtracted from the automatically discovered persistent `Node` objects. This is
+a denylist, not an allowlist: a newly added eligible type is persisted unless it is explicitly
+denied. A denylist entry must name a discovered persistent object. Unknown types and types already
+excluded by another mechanism are rejected as stale or ineffective configuration.
+
+If a retained persistent field has a stored relationship to a denied type, generation fails and
+names both coordinates. The plugin does not silently remove the relationship or reinterpret it as
+a scalar. Resolver-only fields may still refer to non-persistent types under the existing resolver
+rules.
+
+#### Semantic Non-null
+
+`semanticNotNull` makes the persistence representation stricter than the authored GraphQL schema.
+For example:
+
+```graphql
+type Person implements Node {
+  id: ID
+  displayName: String
+}
+```
+
+```yaml
+semanticNotNull:
+  fields:
+    - Person.displayName
+```
+
+`Person.displayName` remains nullable in the public GraphQL schema, but the generated Kotlin
+property, Hibernate mapping, and PostgreSQL column are non-null. The effective rule is:
+
+```text
+non-null in persistence = GraphQL SDL non-null
+                       OR containing type is in semanticNotNull.types
+                       OR field is in semanticNotNull.fields
+```
+
+A coordinate in `semanticNotNull.types` applies to the stored singular fields declared on that
+object, including owning to-one relationship foreign keys. It does not cascade into related types.
+A coordinate in `semanticNotNull.fields` applies only to that stored field. Basic fields, scalar
+arrays, and stored to-one relationships are supported. For an array, the setting controls whether
+the array column itself can be null, not whether individual elements can be null.
+
+Resolver-only fields, computed fields, and to-many relationships cannot be field-level semantic
+non-null coordinates because they do not map to a nullable owning column. Primary and generated
+internal IDs remain mandatory independently of this policy. It is valid, though redundant, to list
+a field that is already non-null in GraphQL.
+
+Semantic non-null does not rewrite GraphQL SDL. Generation also packages the expanded field
+coordinates as runtime metadata. The result-returning `DbClient` operations use that metadata to
+check partial responses: a null semantic-non-null field is accepted when an upstream GraphQL error
+explains its response path, while an unexplained null adds a `SEMANTIC_NON_NULL_VIOLATION` error.
+Existing rows must still satisfy the database constraint before its reviewed schema-diff migration
+is applied.
+
+#### Relationship Overrides
+
+The `relationships` section replaces the former relationship-only YAML file. Use
+`unidirectionalTargetForeignKeyFields` to select target-side foreign-key storage and
+`inverseFieldOverrides` to disambiguate a reverse relationship. All persistence policy now has one
+source of truth.
+
+Override only the YAML location from Gradle when needed:
 
 ```kotlin
 viaductPersistence {
-    includedTypeNames.set(listOf("Group", "GroupMember", "Person"))
+    persistenceConfigFile.set(layout.projectDirectory.file("config/persistence.yaml"))
 }
 ```
 
@@ -395,6 +489,40 @@ Content-Type: application/json
 A plain Postgres instance with `pg_graphql` behind a different gateway may need only an
 `Authorization` header, or a different scheme entirely.
 
+### Semantic Non-null and pg_graphql
+
+Semantic non-null reaches `pg_graphql` through the PostgreSQL schema rather than through custom
+GraphQL metadata:
+
+```text
+persistence.yaml
+  -> effective persistence model
+  -> generated Kotlin and Hibernate nullable="false" mapping
+  -> reviewed hibernateSchemaDiff migration
+  -> PostgreSQL NOT NULL constraint
+  -> pg_graphql schema introspection
+```
+
+The `pg-graphql-metadata.sql` overlay continues to provide authored type and relationship names; it
+does not carry semantic-nullability declarations. After the `NOT NULL` migration is applied,
+`pg_graphql` observes the database constraint when it generates its internal transport schema and
+PostgreSQL rejects null writes. The authored Viaduct field remains nullable, so public API clients
+do not see a schema-breaking nullability change.
+
+This distinction matters operationally: changing `persistence.yaml` and rebuilding artifacts is not
+enough to enforce semantic non-null in an existing database. Review and apply the output of
+`hibernateSchemaDiff` first, including any data backfill needed for existing null values. Until the
+database constraint exists, `pg_graphql` has no semantic non-null policy to discover.
+
+For partial GraphQL responses, use `fetchResult` or `fetchJsonResult`. Their `DbResult` preserves
+partial data and each upstream error's message, path, locations, and extensions. The runtime
+restores both data and error paths through the same response-shape transformation, correlates
+semantic nulls with those authored paths, and adds a
+violation only for an unexplained null. The original `fetch` and `fetchJson` convenience methods
+remain strict for compatibility and throw `UpstreamGraphqlException` when `pg_graphql` returns
+errors. `DbResult` does not itself install errors into Viaduct's field-error channel; resolvers that
+retain partial data must do that at their execution boundary.
+
 The overlay enables row-level security but does not invent authorization policies. Define and
 migrate the PostgreSQL RLS policies required by the application.
 
@@ -449,7 +577,9 @@ return dbClient.fetchByInternalId(
 )
 ```
 
-The runtime also exposes `fetch` for an explicit `DbRead`, `fetchNode` when requested node
+The runtime also exposes `fetch` for an explicit `DbRead`, `fetchResult` for partial typed data and
+structured upstream errors, and `fetchJsonResult` for the equivalent raw JSON result. Use
+`fetchNode` when requested node
 references must be attached, and `fetchUuidIds` for collection resolvers that return node
 references. For connection-backed collection resolvers, `fetchUuidConnection` accepts Viaduct's
 standard `first`/`after` and `last`/`before` arguments and returns UUID references together with

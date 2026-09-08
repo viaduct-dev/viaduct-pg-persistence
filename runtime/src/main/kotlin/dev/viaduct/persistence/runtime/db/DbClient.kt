@@ -37,6 +37,7 @@ fun interface DbRequestHeaders {
  * selection set. Applications own endpoint selection, HTTP-client lifecycle, and provider-specific
  * request headers.
  */
+@Suppress("TooManyFunctions")
 class DbClient(
     private val httpClient: HttpClient,
     private val endpoint: String,
@@ -78,6 +79,13 @@ class DbClient(
         selections: SelectionSet<T>,
     ): T = dbFetcher.fetch(ctx, dbRead, selections)
 
+    /** Fetches partial typed data while preserving upstream GraphQL errors. */
+    suspend fun <T : CompositeOutput> fetchResult(
+        ctx: ExecutionContext,
+        dbRead: DbRead,
+        selections: SelectionSet<T>,
+    ): DbResult<T> = dbFetcher.fetchResult(ctx, dbRead, selections)
+
     /**
      * Fetches the raw pg_graphql JSON for [selections], without converting it to a GRT. Use
      * [toGRT] to convert the result, or [fetch] for the common case of doing both in one call.
@@ -87,6 +95,13 @@ class DbClient(
         dbRead: DbRead,
         selections: SelectionSet<T>,
     ): JsonObject = dbFetcher.fetchJson(ctx, dbRead, selections)
+
+    /** Fetches partial JSON data while preserving upstream GraphQL errors. */
+    suspend fun <T : CompositeOutput> fetchJsonResult(
+        ctx: ExecutionContext,
+        dbRead: DbRead,
+        selections: SelectionSet<T>,
+    ): DbResult<JsonObject> = dbFetcher.fetchJsonResult(ctx, dbRead, selections)
 
     suspend fun <T> fetchNode(
         ctx: ResolverExecutionContext<out Query>,
