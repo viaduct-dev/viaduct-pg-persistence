@@ -78,6 +78,11 @@ Use the `*Result` methods to translate structured database errors into applicati
 The strict `insert`, `update`, and `delete` methods throw `UpstreamGraphqlException` when pg_graphql
 returns errors. The explicit `atMost` parameter prevents an accidentally broad update or delete.
 
+For database functions and application-specific projections, `PgGraphqlClient` executes an
+application-owned GraphQL document with the same per-call headers and structured error behavior.
+It is the escape hatch for migrating database operations that are not ordinary table CRUD without
+falling back to PostgREST.
+
 Result operations preserve partial data and structured errors. Error paths are restored through
 the same response-shape transformation as data, including association rows and filtered single-row
 lookups. They are not automatically installed into Viaduct's field-error channel: a resolver that
