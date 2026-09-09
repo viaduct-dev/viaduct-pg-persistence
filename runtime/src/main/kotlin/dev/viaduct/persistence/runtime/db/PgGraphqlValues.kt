@@ -41,6 +41,11 @@ class PgGraphqlFilter private constructor(
             value: Any?,
         ): PgGraphqlFilter = comparison(field, "lte", value)
 
+        fun ilike(
+            field: String,
+            pattern: String,
+        ): PgGraphqlFilter = comparison(field, "ilike", pattern)
+
         fun isNull(field: String): PgGraphqlFilter = comparison(field, "is", "NULL")
 
         fun oneOf(
