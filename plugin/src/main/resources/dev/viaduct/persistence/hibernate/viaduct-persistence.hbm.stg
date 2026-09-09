@@ -1,0 +1,44 @@
+delimiters "$", "$"
+
+main(mdl) ::= <<
+<?xml version="1.0" encoding="UTF-8"?>
+<hibernate-mapping xmlns="http://www.hibernate.org/xsd/orm/hbm" schema="public">
+$mdl.entities:{entity |$renderEntity(entity)$}$
+</hibernate-mapping>
+>>
+
+renderEntity(entity) ::= <<
+  <class entity-name="$entity.entityName$" table="$entity.tableName$"$if(entity.schemaName)$ schema="$entity.schemaName$"$endif$ lazy="false">
+$entity.attributes:{attribute |$renderAttribute(attribute)$}$
+  </class>
+>>
+
+renderAttribute(attribute) ::= <<
+$if(attribute.basic)$$renderBasic(attribute.basic)$$endif$$if(attribute.toOne)$$renderToOne(attribute.toOne)$$endif$$if(attribute.toMany)$$renderToMany(attribute.toMany)$$endif$
+>>
+
+renderBasic(basic) ::= <<
+    <$basic.elementName$ name="$basic.name$" type="$basic.hibernateType$"$if(!basic.primaryKey)$ not-null="$basic.notNull$"$endif$$if(basic.noInsert)$ insert="false"$endif$$if(basic.noUpdate)$ update="false"$endif$>
+      <column name="$basic.columnName$" not-null="$basic.notNull$"$if(basic.columnDefinition)$ sql-type="$basic.columnDefinition$"$endif$ />
+$if(basic.primaryKey)$
+      <generator class="assigned" />
+$endif$
+    </$basic.elementName$>
+>>
+
+renderToOne(toOne) ::= <<
+    <many-to-one name="$toOne.name$" entity-name="$toOne.targetEntityName$" not-null="$toOne.notNull$" lazy="proxy" foreign-key="$toOne.foreignKeyName$">
+      <column name="$toOne.columnName$" not-null="$toOne.notNull$" sql-type="uuid" />
+    </many-to-one>
+>>
+
+renderToMany(toMany) ::= <<
+    <bag name="$toMany.name$" lazy="true"$if(toMany.inverse)$ inverse="true"$endif$$if(toMany.joinTableName)$ table="$toMany.joinTableName$"$endif$$if(toMany.joinSchemaName)$ schema="$toMany.joinSchemaName$"$endif$>
+      <key column="$toMany.keyColumnName$" not-null="true" />
+$if(toMany.oneToMany)$
+      <one-to-many entity-name="$toMany.targetEntityName$" />
+$else$
+      <many-to-many entity-name="$toMany.targetEntityName$" foreign-key="$toMany.targetForeignKeyName$" column="$toMany.targetColumnName$" />
+$endif$
+    </bag>
+>>
