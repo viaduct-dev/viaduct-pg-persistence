@@ -151,7 +151,7 @@ class PgGraphqlMutationClient(
     ): DbResult<JsonObject> = transport.executeResult(headers, GraphqlQuery(document, variables, responseKey))
 }
 
-private fun Input.toPgGraphqlInput(): JsonObject {
+internal fun Input.toPgGraphqlInput(): JsonObject {
     @Suppress("UNCHECKED_CAST")
     val inputData =
         runCatching {

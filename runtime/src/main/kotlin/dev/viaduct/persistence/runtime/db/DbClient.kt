@@ -17,6 +17,7 @@ import viaduct.api.context.ExecutionContext
 import viaduct.api.context.ResolverExecutionContext
 import viaduct.api.select.SelectionSet
 import viaduct.api.types.CompositeOutput
+import viaduct.api.types.Input
 import viaduct.api.types.NodeObject
 import viaduct.api.types.Query
 
@@ -71,6 +72,72 @@ class DbClient(
             nodeReferenceHydrator = nodeReferenceHydrator,
         )
     private val connectionFetcher = ConnectionFetcher(transport)
+    private val mutationClient = PgGraphqlMutationClient(httpClient, endpoint)
+
+    /** Inserts the fields of [input] into the pg_graphql entity represented by [T]. */
+    suspend inline fun <reified T : NodeObject> insert(
+        ctx: ExecutionContext,
+        input: Input,
+    ): JsonObject = insert(ctx, input, requireNotNull(T::class.simpleName))
+
+    /** Updates the pg_graphql entity represented by [T], using its typed `@idOf` input as the filter. */
+    suspend inline fun <reified T : NodeObject> update(
+        ctx: ExecutionContext,
+        input: Input,
+    ): JsonObject = update(ctx, input, requireNotNull(T::class.simpleName))
+
+    /** Deletes the pg_graphql entity represented by [T], using its typed `@idOf` input as the filter. */
+    suspend inline fun <reified T : NodeObject> delete(
+        ctx: ExecutionContext,
+        input: Input,
+    ): JsonObject = delete(ctx, input, requireNotNull(T::class.simpleName))
+
+    @PublishedApi
+    internal suspend fun insert(
+        ctx: ExecutionContext,
+        input: Input,
+        entityName: String,
+    ): JsonObject =
+        mutationClient.insert(
+            PgGraphqlEntity(entityName),
+            input,
+            selection = "affectedCount records { uuidId }",
+            headers = requestHeaders.forContext(ctx),
+        )
+
+    @PublishedApi
+    internal suspend fun update(
+        ctx: ExecutionContext,
+        input: Input,
+        entityName: String,
+    ): JsonObject {
+        val identifiers = input.mutationIdentifiers(entityName)
+        require(identifiers.isNotEmpty()) { "Update input has no @idOf field for $entityName" }
+        return mutationClient.update(
+            PgGraphqlEntity(entityName),
+            input.mutationValues(entityName),
+            identifiers.equalityFilter(),
+            atMost = 1,
+            selection = "affectedCount records { uuidId }",
+            headers = requestHeaders.forContext(ctx),
+        )
+    }
+
+    @PublishedApi
+    internal suspend fun delete(
+        ctx: ExecutionContext,
+        input: Input,
+        entityName: String,
+    ): JsonObject {
+        val identifiers = input.mutationIdentifiers(entityName)
+        require(identifiers.isNotEmpty()) { "Delete input has no @idOf field for $entityName" }
+        return mutationClient.delete(
+            PgGraphqlEntity(entityName),
+            identifiers.equalityFilter(),
+            atMost = 1,
+            headers = requestHeaders.forContext(ctx),
+        )
+    }
 
     /** Fetches [selections] and converts the result to a GRT. Shortcut for [fetchJson] + [toGRT]. */
     suspend fun <T : CompositeOutput> fetch(
