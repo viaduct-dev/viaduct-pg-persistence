@@ -10,9 +10,22 @@ import dev.viaduct.persistence.hibernate.EffectiveHibernateTable
 import dev.viaduct.persistence.hibernate.GraphqlNameKind
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
 class PostgresqlOverlayTest {
+    @Test
+    fun `rejects duplicate renderers for an operation class`() {
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                MigrationRendererRegistry.create(
+                    listOf(EdgeFieldMigrationRenderer, EdgeFieldMigrationRenderer),
+                )
+            }
+
+        assertContains(error.message.orEmpty(), "AddEdgeField")
+    }
+
     @Test
     fun `dispatches each operation to the renderer registered for its class`() {
         val plan =

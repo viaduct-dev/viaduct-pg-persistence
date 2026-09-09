@@ -1,7 +1,6 @@
 package dev.viaduct.persistence.hibernate
 
 import org.w3c.dom.Document
-import org.w3c.dom.Element
 import org.xml.sax.InputSource
 import java.io.File
 import java.io.StringReader
@@ -48,8 +47,3 @@ internal object HibernateXmlDocuments {
             }.transform(DOMSource(document), StreamResult(destination))
     }
 }
-
-internal fun Element.child(name: String): Element =
-    ownerDocument
-        .createElementNS(namespaceURI, name)
-        .also(::appendChild)

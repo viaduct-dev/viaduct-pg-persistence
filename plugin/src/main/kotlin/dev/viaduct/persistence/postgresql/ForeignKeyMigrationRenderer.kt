@@ -1,7 +1,5 @@
 package dev.viaduct.persistence.postgresql
 
-import dev.viaduct.persistence.hibernate.EffectiveHibernateRelationship
-
 internal data class ForeignKeySpec(
     val schemaName: String,
     val tableName: String,
@@ -18,18 +16,6 @@ internal object ForeignKeyMigrationRenderer :
     override val operationType = PostgresqlMigrationOperation.AddForeignKey::class
 
     override fun render(operation: PostgresqlMigrationOperation.AddForeignKey): String = render(operation.foreignKey)
-
-    fun render(relationship: EffectiveHibernateRelationship): String =
-        render(
-            ForeignKeySpec(
-                schemaName = relationship.schemaName,
-                tableName = relationship.tableName,
-                columnName = relationship.columnName,
-                targetSchemaName = requireNotNull(relationship.targetSchemaName),
-                targetTableName = requireNotNull(relationship.targetTableName),
-                targetColumnName = requireNotNull(relationship.targetIdColumnName),
-            ),
-        )
 
     fun render(foreignKey: ForeignKeySpec): String =
         foreignKey.run {
