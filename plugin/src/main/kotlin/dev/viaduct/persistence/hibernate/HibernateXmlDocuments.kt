@@ -12,6 +12,7 @@ import javax.xml.transform.stream.StreamResult
 internal object HibernateXmlDocuments {
     const val PERSISTENCE_NS = "https://jakarta.ee/xml/ns/persistence"
     const val ORM_NS = "https://jakarta.ee/xml/ns/persistence/orm"
+    const val HBM_NS = "http://www.hibernate.org/xsd/orm/hbm"
 
     fun newDocument(): Document {
         val factory =

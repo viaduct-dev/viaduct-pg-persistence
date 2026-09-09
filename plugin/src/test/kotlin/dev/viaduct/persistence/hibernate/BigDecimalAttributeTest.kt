@@ -44,26 +44,20 @@ class BigDecimalAttributeTest {
         assertEquals("java.math.BigDecimal", total.kotlinType)
         assertEquals(false, total.nullable)
 
-        assertContains(
-            HibernateSchemaModelWriter().renderEntity(invoice, "test.generated"),
-            "open var amount: java.math.BigDecimal? = null",
-        )
-
         val outputDirectory = Files.createTempDirectory("hibernate-bigdecimal").toFile()
         try {
             HibernateSchemaModelWriter().write(
                 model = model,
                 outputDirectory = outputDirectory,
-                packageName = "test.generated",
             )
             val mapping =
                 outputDirectory
-                    .resolve("resources/META-INF/orm.xml")
+                    .resolve("resources/META-INF/viaduct-persistence.hbm.xml")
                     .readText()
-            assertContains(mapping, """<basic name="amount" optional="true">""")
-            assertContains(mapping, """<column name="amount" nullable="true"/>""")
-            assertContains(mapping, """<basic name="total" optional="false">""")
-            assertContains(mapping, """<column name="total" nullable="false"/>""")
+            assertContains(mapping, """<property name="amount" not-null="false" type="java.math.BigDecimal">""")
+            assertContains(mapping, """<column name="amount" not-null="false"/>""")
+            assertContains(mapping, """<property name="total" not-null="true" type="java.math.BigDecimal">""")
+            assertContains(mapping, """<column name="total" not-null="true"/>""")
         } finally {
             outputDirectory.deleteRecursively()
         }

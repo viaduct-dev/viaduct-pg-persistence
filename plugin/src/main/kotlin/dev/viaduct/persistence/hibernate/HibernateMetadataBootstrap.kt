@@ -81,7 +81,7 @@ object HibernateMetadataBootstrap {
         previousContextClassLoader: ClassLoader?,
     ): HibernateMetadataHandle {
         val metadata = buildMetadata(configuration, classLoader, registry)
-        validateManagedClasses(configuration, metadata)
+        validateManagedEntities(configuration, metadata)
         return HibernateMetadataHandle(
             metadata = metadata,
             registry = registry,
@@ -120,16 +120,16 @@ object HibernateMetadataBootstrap {
         return metadataBuilder.build()
     }
 
-    private fun validateManagedClasses(
+    private fun validateManagedEntities(
         configuration: HibernateMetadataConfiguration,
         metadata: Metadata,
     ) {
-        val actualManagedClasses = metadata.entityBindings.mapNotNull { it.className }.toSet()
-        val expectedManagedClasses = configuration.managedClassNames.toSet()
-        require(actualManagedClasses == expectedManagedClasses) {
-            "Hibernate managed classes differ from the metadata configuration: " +
-                "missing=${(expectedManagedClasses - actualManagedClasses).sorted()}, " +
-                "unexpected=${(actualManagedClasses - expectedManagedClasses).sorted()}"
+        val actualManagedEntities = metadata.entityBindings.map { it.entityName }.toSet()
+        val expectedManagedEntities = configuration.managedEntityNames.toSet()
+        require(actualManagedEntities == expectedManagedEntities) {
+            "Hibernate managed entities differ from the metadata configuration: " +
+                "missing=${(expectedManagedEntities - actualManagedEntities).sorted()}, " +
+                "unexpected=${(actualManagedEntities - expectedManagedEntities).sorted()}"
         }
     }
 }

@@ -38,9 +38,6 @@ abstract class BuildEffectiveHibernateModelTask : DefaultTask() {
     abstract val modelClasspath: ConfigurableFileCollection
 
     @get:Input
-    abstract val packageName: Property<String>
-
-    @get:Input
     @get:Optional
     abstract val implicitNamingStrategyClassName: Property<String>
 
@@ -79,7 +76,6 @@ abstract class BuildEffectiveHibernateModelTask : DefaultTask() {
                 mappingFile = mappingFile.get().asFile,
                 classpath = modelClasspath.files.toList(),
                 semanticModel = semanticModel,
-                packageName = packageName.get(),
                 implicitNamingStrategyClassName =
                     implicitNamingStrategyClassName.orNull
                         ?: ViaductImplicitNamingStrategy::class.java.name,
@@ -99,7 +95,6 @@ abstract class BuildEffectiveHibernateModelTask : DefaultTask() {
             EffectiveHibernateModelBuilder.build(
                 metadata = handle.metadata,
                 semanticModel = semanticModel,
-                packageName = packageName.get(),
             )
         PostgresqlOverlay.write(effectiveModel, output)
         PgGraphqlOverlay.write(effectiveModel, output)

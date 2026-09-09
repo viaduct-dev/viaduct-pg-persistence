@@ -5,12 +5,75 @@ import dev.viaduct.persistence.hibernate.EffectiveHibernateComputedRelationship
 import dev.viaduct.persistence.hibernate.EffectiveHibernateEntity
 import dev.viaduct.persistence.hibernate.EffectiveHibernateJoinTable
 import dev.viaduct.persistence.hibernate.EffectiveHibernateModel
+import dev.viaduct.persistence.hibernate.EffectiveHibernateRelationship
 import dev.viaduct.persistence.hibernate.EffectiveHibernateTable
+import dev.viaduct.persistence.hibernate.GraphqlNameKind
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
 
 class PostgresqlOverlayTest {
+    @Test
+    fun `creates physical foreign keys for dynamic relationships`() {
+        val model =
+            EffectiveHibernateModel(
+                entities = emptyList(),
+                relationships =
+                    listOf(
+                        EffectiveHibernateRelationship(
+                            ownerTypeName = "Team",
+                            fieldName = "owner",
+                            schemaName = "public",
+                            tableName = "teams",
+                            columnName = "owner_id",
+                            graphqlNameKind = GraphqlNameKind.FOREIGN,
+                            targetSchemaName = "public",
+                            targetTableName = "persons",
+                            targetIdColumnName = "id",
+                        ),
+                    ),
+                computedRelationships = emptyList(),
+                arrays = emptyList(),
+            )
+
+        val sql = PostgresqlOverlay.renderMigration(model)
+        assertContains(sql, "ADD CONSTRAINT \"teams_owner_id_fkey\"")
+        assertContains(sql, "FOREIGN KEY (\"owner_id\")")
+        assertContains(sql, "REFERENCES \"public\".\"persons\" (\"id\")")
+        assertContains(sql, "IF NOT EXISTS")
+    }
+
+    @Test
+    fun `creates both join-table foreign keys`() {
+        val relationship =
+            EffectiveHibernateComputedRelationship(
+                ownerTypeName = "Group",
+                fieldName = "members",
+                owner = EffectiveHibernateTable("public", "groups", "id"),
+                target = EffectiveHibernateTable("public", "persons", "id"),
+                join =
+                    EffectiveHibernateJoinTable(
+                        "viaduct_internal",
+                        "group_members",
+                        "group_id",
+                        "person_id",
+                    ),
+            )
+        val model =
+            EffectiveHibernateModel(
+                entities = emptyList(),
+                relationships = emptyList(),
+                computedRelationships = listOf(relationship),
+                arrays = emptyList(),
+            )
+
+        val sql = PostgresqlOverlay.renderMigration(model)
+        assertContains(sql, "FOREIGN KEY (\"group_id\")")
+        assertContains(sql, "REFERENCES \"public\".\"groups\" (\"id\")")
+        assertContains(sql, "FOREIGN KEY (\"person_id\")")
+        assertContains(sql, "REFERENCES \"public\".\"persons\" (\"id\")")
+    }
+
     @Test
     fun `adds element null checks only for non-null GraphQL list elements`() {
         val model =

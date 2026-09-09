@@ -113,6 +113,7 @@ internal object PgGraphqlConstraintRenderer {
         when (graphqlNameKind) {
             GraphqlNameKind.FOREIGN -> "foreign_name"
             GraphqlNameKind.LOCAL -> "local_name"
+            GraphqlNameKind.NONE -> error("A relationship without a GraphQL name cannot be rendered")
         }
 
     private data class TargetGroup(

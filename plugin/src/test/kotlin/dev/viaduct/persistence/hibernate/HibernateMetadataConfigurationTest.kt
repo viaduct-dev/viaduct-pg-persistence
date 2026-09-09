@@ -9,7 +9,7 @@ class HibernateMetadataConfigurationTest {
     @Test
     fun `mappingFile defaults to the plugin's conventional generated location`() {
         assertEquals(
-            File("build/generated/viaduct-persistence/resources/META-INF/orm.xml"),
+            File("build/generated/viaduct-persistence/resources/META-INF/viaduct-persistence.hbm.xml"),
             HibernateMetadataConfiguration.defaultMappingFile(),
         )
     }
@@ -29,11 +29,9 @@ class HibernateMetadataConfigurationTest {
         mappingFile.writeText(
             """
             <?xml version="1.0" encoding="UTF-8"?>
-            <entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm" version="3.2">
-              <entity class="example.generated.Group" access="FIELD">
-                <table name="groups"/>
-              </entity>
-            </entity-mappings>
+            <hibernate-mapping xmlns="http://www.hibernate.org/xsd/orm/hbm">
+              <class entity-name="Group" table="groups"/>
+            </hibernate-mapping>
             """.trimIndent(),
         )
 
@@ -41,7 +39,7 @@ class HibernateMetadataConfigurationTest {
             val configuration = HibernateMetadataConfiguration.default()
 
             assertEquals(mappingFile, configuration.mappingFile)
-            assertEquals(listOf("example.generated.Group"), configuration.managedClassNames)
+            assertEquals(listOf("Group"), configuration.managedEntityNames)
             assertTrue(configuration.classpath.isNotEmpty())
         } finally {
             check(mappingFile.delete() || !mappingFile.exists())
@@ -54,7 +52,7 @@ class HibernateMetadataConfigurationTest {
             HibernateMetadataConfiguration(
                 mappingFile = File("orm.xml"),
                 classpath = emptyList(),
-                managedClassNames = listOf("example.Entity"),
+                managedEntityNames = listOf("Entity"),
             )
 
         assertEquals(
@@ -71,31 +69,25 @@ class HibernateMetadataConfigurationTest {
     }
 
     @Test
-    fun `managedClassNamesIn reads distinct entity classes out of a generated mapping file`() {
+    fun `managedEntityNamesIn reads distinct dynamic entities out of a generated mapping file`() {
         val mappingFile =
             File.createTempFile("hibernate-metadata-configuration", ".xml").also {
                 it.writeText(
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
-                    <entity-mappings xmlns="https://jakarta.ee/xml/ns/persistence/orm" version="3.2">
-                      <entity class="example.generated.Group" access="FIELD">
-                        <table name="groups"/>
-                      </entity>
-                      <entity class="example.generated.GroupMembersAssociation" access="FIELD">
-                        <table name="group_members"/>
-                      </entity>
-                      <entity class="example.generated.Group" access="FIELD">
-                        <table name="groups"/>
-                      </entity>
-                    </entity-mappings>
+                    <hibernate-mapping xmlns="http://www.hibernate.org/xsd/orm/hbm">
+                      <class entity-name="Group" table="groups"/>
+                      <class entity-name="GroupMembersAssociation" table="group_members"/>
+                      <class entity-name="Group" table="groups"/>
+                    </hibernate-mapping>
                     """.trimIndent(),
                 )
             }
 
         try {
             assertEquals(
-                listOf("example.generated.Group", "example.generated.GroupMembersAssociation"),
-                HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
+                listOf("Group", "GroupMembersAssociation"),
+                HibernateMetadataConfiguration.managedEntityNamesIn(mappingFile),
             )
         } finally {
             check(mappingFile.delete() || !mappingFile.exists())

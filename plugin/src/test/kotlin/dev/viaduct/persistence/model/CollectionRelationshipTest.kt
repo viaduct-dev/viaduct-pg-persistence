@@ -442,13 +442,13 @@ class CollectionRelationshipTest {
         val output = Files.createTempDirectory("persistence-edge-mapping").toFile()
         try {
             HibernateSchemaModelWriter().write(model, output, "generated")
-            val mapping = output.resolve("resources/META-INF/orm.xml").readText()
-            assertTrue(mapping.contains("GroupMembersAssociationEntity"))
-            assertTrue(mapping.contains("<table name=\"GroupMembersAssociation\" schema=\"viaduct_internal\""))
-            assertTrue(mapping.contains("<basic name=\"role\""))
-            assertTrue(mapping.contains("name=\"role\" nullable=\"false\""))
-            assertTrue(mapping.contains("<many-to-one fetch=\"LAZY\" name=\"invitedBy\""))
-            assertTrue(mapping.contains("name=\"invitedById\" nullable=\"true\""))
+            val mapping = output.resolve("resources/META-INF/viaduct-persistence.hbm.xml").readText()
+            assertTrue(mapping.contains("entity-name=\"GroupMembersAssociation\""))
+            assertTrue(mapping.contains("schema=\"viaduct_internal\" table=\"GroupMembersAssociation\""))
+            assertTrue(mapping.contains("<property name=\"role\""))
+            assertTrue(mapping.contains("name=\"role\" not-null=\"true\""))
+            assertTrue(mapping.contains("name=\"invitedBy\""))
+            assertTrue(mapping.contains("name=\"invitedById\" not-null=\"false\""))
         } finally {
             output.deleteRecursively()
         }

@@ -8,10 +8,9 @@ object EffectiveHibernateModelBuilder {
     fun build(
         metadata: Metadata,
         semanticModel: PersistenceModel,
-        packageName: String,
     ): EffectiveHibernateModel =
         EffectiveHibernateModelAssembler(
-            HibernateModelContext(metadata, semanticModel, packageName),
+            HibernateModelContext(metadata, semanticModel),
         ).build()
 }
 

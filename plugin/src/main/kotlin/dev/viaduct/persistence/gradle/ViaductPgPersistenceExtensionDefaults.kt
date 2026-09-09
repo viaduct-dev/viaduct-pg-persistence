@@ -30,9 +30,6 @@ internal object ViaductPgPersistenceExtensionDefaults {
                         }
                     },
                 )
-                packageName.convention(
-                    project.provider { "${project.group}.persistence.generated" },
-                )
                 implicitNamingStrategyClassName.convention(
                     ViaductImplicitNamingStrategy::class.java.name,
                 )

@@ -123,7 +123,7 @@ semanticNotNull:
     - Person.displayName
 ```
 
-`Person.displayName` remains nullable in GraphQL, but its generated Kotlin property and relational
+`Person.displayName` remains nullable in GraphQL, but its dynamic Hibernate property and relational
 column are non-null, and schema diff proposes a `NOT NULL` constraint.
 
 ### Type coordinates
@@ -220,8 +220,8 @@ read implicitly, preventing two files from becoming competing sources of truth.
 - Model tests for field-level and type-level semantic non-null on basic attributes, scalar arrays,
   and to-one relationships.
 - Negative tests for denied types, resolver fields, to-many fields, and non-object coordinates.
-- Hibernate mapping and generated Kotlin tests proving semantic non-null produces non-null properties
-  and `nullable="false"` mappings.
+- Dynamic HBM tests proving semantic non-null produces `not-null="true"` mappings without
+  generating entity source code.
 - Schema-diff tests proving semantic declarations result in `NOT NULL` changes.
 - Gradle functional tests proving YAML edits invalidate tasks and no allowlist remains in the DSL.
 - Compatibility tests proving GraphQL SDL and runtime response behavior are unchanged.

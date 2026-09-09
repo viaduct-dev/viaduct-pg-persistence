@@ -1,14 +1,12 @@
 package dev.viaduct.persistence.hibernate
 
 import dev.viaduct.persistence.model.PersistenceModel
-import dev.viaduct.persistence.model.associationEntityClassName
-import dev.viaduct.persistence.model.entityClassName
 import java.io.File
 
 /**
  * Builds Hibernate metadata inputs from the semantic persistence model.
  *
- * Only [mappingFile], [classpath], [semanticModel], and [packageName] are mandatory; the
+ * Only [mappingFile], [classpath], and [semanticModel] are mandatory; the
  * remaining fields are policy knobs that default to Viaduct's standard configuration.
  */
 @Suppress("LongParameterList")
@@ -16,7 +14,6 @@ class HibernateMetadataConfigurationInput(
     val mappingFile: File,
     classpath: List<File>,
     val semanticModel: PersistenceModel,
-    val packageName: String,
     val implicitNamingStrategyClassName: String = ViaductImplicitNamingStrategy::class.java.name,
     val physicalNamingStrategyClassName: String = ViaductPhysicalNamingStrategy::class.java.name,
     metadataCustomizerClassNames: List<String> = emptyList(),
@@ -36,28 +33,20 @@ object HibernateMetadataConfigurationFactory {
         HibernateMetadataConfiguration(
             mappingFile = input.mappingFile,
             classpath = input.classpath,
-            managedClassNames = managedClassNames(input),
+            managedEntityNames = managedEntityNames(input),
             implicitNamingStrategyClassName = input.implicitNamingStrategyClassName,
             physicalNamingStrategyClassName = input.physicalNamingStrategyClassName,
             metadataCustomizerClassNames = input.metadataCustomizerClassNames,
             dialectClassName = input.dialectClassName,
             hibernateSettings = input.hibernateSettings,
             semanticModel = input.semanticModel,
-            packageName = input.packageName,
         )
 
-    private fun managedClassNames(input: HibernateMetadataConfigurationInput): List<String> =
+    private fun managedEntityNames(input: HibernateMetadataConfigurationInput): List<String> =
         buildList {
-            input.semanticModel.entities.forEach { entity ->
-                add("${input.packageName}.${entityClassName(entity.graphqlName)}")
-            }
+            input.semanticModel.entities.forEach { entity -> add(entity.graphqlName) }
             input.semanticModel.associations.forEach { association ->
-                add(
-                    "${input.packageName}.${associationEntityClassName(
-                        association.ownerTypeName,
-                        association.fieldName,
-                    )}",
-                )
+                add(association.typeName)
             }
         }
 }

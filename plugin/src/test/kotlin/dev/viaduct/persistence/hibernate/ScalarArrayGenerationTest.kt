@@ -30,13 +30,6 @@ class ScalarArrayGenerationTest {
         assertEquals(true, labels.collection)
         assertEquals(false, labels.elementNullable)
         assertEquals(true, labels.nullable)
-        assertContains(
-            HibernateSchemaModelWriter().renderEntity(
-                model.entities.single { it.graphqlName == "Group" },
-                "test.generated",
-            ),
-            "open var labels: Array<String>? = null",
-        )
     }
 
     @Test
@@ -66,20 +59,20 @@ class ScalarArrayGenerationTest {
             HibernateSchemaModelWriter().write(
                 model = model,
                 outputDirectory = outputDirectory,
-                packageName = "test.generated",
             )
 
             val mapping =
                 outputDirectory
-                    .resolve("resources/META-INF/orm.xml")
+                    .resolve("resources/META-INF/viaduct-persistence.hbm.xml")
                     .readText()
             assertContains(
                 mapping,
-                """<join-column column-definition="uuid" name="groupId" nullable="false"/>""",
+                """<many-to-one entity-name="Group" foreign-key="FK_GroupMember_group"""",
             )
+            assertContains(mapping, """<column name="groupId" not-null="true" sql-type="uuid"/>""")
             assertContains(
                 mapping,
-                """<join-column column-definition="uuid" name="categoryId" nullable="false"/>""",
+                """<key column="categoryId" not-null="true"/>""",
             )
         } finally {
             outputDirectory.deleteRecursively()
@@ -103,19 +96,18 @@ class ScalarArrayGenerationTest {
             HibernateSchemaModelWriter().write(
                 model = model,
                 outputDirectory = outputDirectory,
-                packageName = "test.generated",
             )
 
             val mapping =
                 outputDirectory
-                    .resolve("resources/META-INF/orm.xml")
+                    .resolve("resources/META-INF/viaduct-persistence.hbm.xml")
                     .readText()
             assertContains(
                 mapping,
-                """<join-table name="PersonFriendsAssociation" schema="viaduct_internal">""",
+                """<bag lazy="true" name="friends" schema="viaduct_internal" table="PersonFriendsAssociation">""",
             )
-            assertContains(mapping, """name="ownerPersonId"""")
-            assertContains(mapping, """name="targetPersonId"""")
+            assertContains(mapping, """column="ownerPersonId"""")
+            assertContains(mapping, """column="targetPersonId"""")
         } finally {
             outputDirectory.deleteRecursively()
         }

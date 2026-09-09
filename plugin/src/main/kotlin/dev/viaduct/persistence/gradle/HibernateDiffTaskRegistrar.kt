@@ -51,9 +51,12 @@ internal class HibernateDiffTaskRegistrar(
                     project.layout.buildDirectory
                         .file("schema-diff/hibernate-raw-review.postgresql.sql")
                 task.centralSchemaDirectory.set(extension.centralSchemaDirectory)
-                task.mappingFile.set(layout.generatedRoot.map { it.file("resources/META-INF/orm.xml") })
+                task.mappingFile.set(
+                    layout.generatedRoot.map { root ->
+                        root.file("resources/META-INF/viaduct-persistence.hbm.xml")
+                    },
+                )
                 task.modelClasspath.from(layout.mainSourceSet.runtimeClasspath)
-                task.packageName.set(extension.packageName)
                 task.persistenceConfigFile.from(extension.persistenceConfigFile)
                 task.implicitNamingStrategyClassName.set(extension.implicitNamingStrategyClassName)
                 task.physicalNamingStrategyClassName.set(extension.physicalNamingStrategyClassName)

@@ -98,6 +98,21 @@ class PgGraphqlConstraintRendererTest {
     }
 
     @Test
+    fun `does not comment id-only relationships`() {
+        val relationship =
+            foreignRelationship().copy(graphqlNameKind = GraphqlNameKind.NONE)
+
+        assertNull(
+            PgGraphqlConstraintRenderer.commentValue(
+                modelOf(relationship),
+                "public",
+                "groups",
+                "owner_id",
+            ),
+        )
+    }
+
+    @Test
     fun `synthesizes local_name for two unpaired foreign keys to the same target table`() {
         val model =
             modelOf(

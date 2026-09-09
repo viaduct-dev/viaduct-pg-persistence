@@ -7,8 +7,7 @@ import org.gradle.api.provider.Property
 
 abstract class ViaductPgPersistenceExtension {
     abstract val centralSchemaDirectory: DirectoryProperty
-    abstract val packageName: Property<String>
-    abstract val replacementOrmXml: RegularFileProperty
+    abstract val replacementHbmXml: RegularFileProperty
     abstract val implicitNamingStrategyClassName: Property<String>
     abstract val physicalNamingStrategyClassName: Property<String>
     abstract val metadataCustomizerClassNames: ListProperty<String>

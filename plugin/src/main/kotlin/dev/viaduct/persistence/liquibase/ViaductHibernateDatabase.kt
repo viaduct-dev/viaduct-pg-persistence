@@ -73,9 +73,8 @@ class ViaductHibernateDatabase : HibernateDatabase() {
         handle: HibernateMetadataHandle,
     ): EffectiveHibernateModel? {
         val semanticModel = configuration.semanticModel
-        val packageName = configuration.packageName
-        if (semanticModel == null || packageName == null) return null
-        return EffectiveHibernateModelBuilder.build(handle.metadata, semanticModel, packageName)
+        if (semanticModel == null) return null
+        return EffectiveHibernateModelBuilder.build(handle.metadata, semanticModel)
     }
 
     override fun configureSources(sources: MetadataSources) = Unit

@@ -136,14 +136,14 @@ class HibernateMetadataReferenceTest {
         HibernateMetadataConfiguration(
             mappingFile = mappingFile,
             classpath = emptyList(),
-            managedClassNames = listOf("example.MissingEntity"),
+            managedEntityNames = listOf("example.MissingEntity"),
         )
 
     private fun validConfiguration(mappingFile: File): HibernateMetadataConfiguration =
         HibernateMetadataConfiguration(
             mappingFile = mappingFile,
             classpath = classpath(),
-            managedClassNames = listOf(TestReferenceEntity::class.java.name),
+            managedEntityNames = listOf(TestReferenceEntity::class.java.name),
         )
 
     private fun classpath(): List<File> =

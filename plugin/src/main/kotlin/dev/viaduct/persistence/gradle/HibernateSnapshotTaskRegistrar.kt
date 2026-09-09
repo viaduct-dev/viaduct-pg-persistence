@@ -16,9 +16,12 @@ internal class HibernateSnapshotTaskRegistrar(
                 "Write a review-only Liquibase snapshot of the generated Hibernate model."
             task.dependsOn(effective)
             task.centralSchemaDirectory.set(extension.centralSchemaDirectory)
-            task.mappingFile.set(layout.generatedRoot.map { it.file("resources/META-INF/orm.xml") })
+            task.mappingFile.set(
+                layout.generatedRoot.map { root ->
+                    root.file("resources/META-INF/viaduct-persistence.hbm.xml")
+                },
+            )
             task.modelClasspath.from(layout.mainSourceSet.runtimeClasspath)
-            task.packageName.set(extension.packageName)
             task.persistenceConfigFile.from(extension.persistenceConfigFile)
             task.implicitNamingStrategyClassName.set(extension.implicitNamingStrategyClassName)
             task.physicalNamingStrategyClassName.set(extension.physicalNamingStrategyClassName)
