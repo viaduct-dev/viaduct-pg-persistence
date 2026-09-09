@@ -7,6 +7,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -72,6 +74,45 @@ class PgGraphqlClientTest {
             )
         }
 
+    @Test
+    fun `typed operations own value encoding and record decoding`() =
+        runBlocking {
+            var call = 0
+            val client =
+                client {
+                    call += 1
+                    if (call == 1) {
+                        """{"data":{"personCollection":{"edges":[{"node":{"uuidId":"p1","displayName":"Ada"}}]}}}"""
+                    } else {
+                        """
+                        {"data":{"insertIntoPersonCollection":{
+                          "records":[{"uuidId":"p2","displayName":"Grace"}]
+                        }}}
+                        """.trimIndent()
+                    }
+                }
+
+            val selected =
+                client.selectRecords(
+                    entity = PgGraphqlEntity("Person"),
+                    selection = "uuidId displayName",
+                    recordDeserializer = PersonRecord.serializer(),
+                    filter = PgGraphqlFilter.eq("displayName", "Ada"),
+                    naming = PgGraphqlRecordNaming.SNAKE_CASE,
+                )
+            val inserted =
+                client.insertRecords(
+                    entity = PgGraphqlEntity("Person"),
+                    objects = listOf(PgGraphqlObject.of("displayName" to "Grace")),
+                    selection = "uuidId displayName",
+                    recordDeserializer = PersonRecord.serializer(),
+                    naming = PgGraphqlRecordNaming.SNAKE_CASE,
+                )
+
+            assertEquals(PersonRecord("p1", "Ada"), selected.single())
+            assertEquals(PersonRecord("p2", "Grace"), inserted.single())
+        }
+
     private fun client(response: (io.ktor.client.request.HttpRequestData) -> String): PgGraphqlClient =
         PgGraphqlClient(
             HttpClient(
@@ -87,4 +128,10 @@ class PgGraphqlClientTest {
 
     private fun io.ktor.client.request.HttpRequestData.bodyText(): String =
         (body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+
+    @Serializable
+    private data class PersonRecord(
+        @SerialName("_uuid_id") val id: String,
+        @SerialName("display_name") val displayName: String,
+    )
 }
