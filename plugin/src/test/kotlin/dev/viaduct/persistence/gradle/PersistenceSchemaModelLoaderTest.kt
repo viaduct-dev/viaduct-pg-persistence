@@ -17,6 +17,29 @@ class PersistenceSchemaModelLoaderTest {
         val model = PersistenceSchemaModelLoader.build(fixture.schemaDirectory, fixture.config)
 
         assertEquals(listOf("Group"), model.entities.map { it.graphqlName })
+        assertTrue(model.entities.single().generatedGlobalId)
+    }
+
+    @Test
+    fun `denylist is the only exception to Node persistence validation`() {
+        val fixture = fixture(auditField = "external: String @resolver")
+        fixture.config.writeText("denyList:\n  types: [AuditEvent]\n")
+
+        val model = PersistenceSchemaModelLoader.build(fixture.schemaDirectory, fixture.config)
+
+        assertEquals(listOf("Group"), model.entities.map { it.graphqlName })
+    }
+
+    @Test
+    fun `validates every Node when YAML does not deny it`() {
+        val fixture = fixture(auditField = "external: String @resolver")
+
+        val failure =
+            assertFailsWith<IllegalStateException> {
+                PersistenceSchemaModelLoader.build(fixture.schemaDirectory, null)
+            }
+
+        assertTrue(failure.message!!.contains("Persistent Node 'AuditEvent'"))
     }
 
     @Test
@@ -78,7 +101,10 @@ class PersistenceSchemaModelLoaderTest {
         assertTrue(failure.message!!.contains("AuditEvent"))
     }
 
-    private fun fixture(groupField: String = "name: String"): Fixture {
+    private fun fixture(
+        groupField: String = "name: String",
+        auditField: String = "",
+    ): Fixture {
         val root = Files.createTempDirectory("persistence-policy").toFile()
         val schemaDirectory =
             root.resolve("schema").apply {
@@ -86,6 +112,7 @@ class PersistenceSchemaModelLoaderTest {
             }
         schemaDirectory.resolve("Model.graphqls").writeText(
             """
+            directive @resolver on FIELD_DEFINITION
             interface Node { id: ID! }
 
             type Group implements Node {
@@ -95,6 +122,7 @@ class PersistenceSchemaModelLoaderTest {
 
             type AuditEvent implements Node {
               id: ID
+              $auditField
             }
             """.trimIndent(),
         )

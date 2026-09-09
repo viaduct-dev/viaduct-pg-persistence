@@ -17,6 +17,7 @@ internal class PersistenceGenerationRegistrar(
             ) {
                 it.group = "verification"
                 it.centralSchemaDirectory.set(extension.centralSchemaDirectory)
+                it.persistenceConfigFile.from(extension.persistenceConfigFile)
                 dependOnCentralSchemaAssemblyIfPresent(it)
             }
         val generate =

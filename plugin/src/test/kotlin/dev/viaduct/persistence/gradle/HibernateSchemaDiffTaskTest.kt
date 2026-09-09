@@ -125,7 +125,10 @@ class HibernateSchemaDiffTaskTest {
         <?xml version="1.0" encoding="UTF-8"?>
         <hibernate-mapping xmlns="http://www.hibernate.org/xsd/orm/hbm" schema="public">
           <class entity-name="Group" table="Group" lazy="false">
-            <id name="id" type="uuid" column="id"><generator class="assigned"/></id>
+            <id name="internalId" type="uuid" column="internalId"><generator class="assigned"/></id>
+            <property name="id" type="string" not-null="true" insert="false" update="false">
+              <column name="id" not-null="true" sql-type="text"/>
+            </property>
           </class>
         </hibernate-mapping>
         """.trimIndent()

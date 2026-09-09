@@ -297,8 +297,8 @@ Supported scalar mappings are:
 | One-dimensional scalar list | PostgreSQL array |
 
 Resolver-backed fields that do not form relationships between included persistent types are not
-persisted. A type reachable from a `@db` root cannot contain a transitively reachable
-`@resolver` field because pg_graphql must resolve the complete db.
+persisted. A type reachable from a persistent `Node` cannot contain a transitively reachable
+`@resolver` field because pg_graphql must resolve the complete stored graph.
 
 ### Excluding Types
 
@@ -314,7 +314,7 @@ notable file. These cases fail generation instead of producing a partial databas
 
 `.notable.graphqls` works, but is not the recommended way to keep externally backed types out of
 the database. Standard practice is a second Viaduct tenant module that never applies this plugin
-and has no `@db` schema of its own, alongside the tenant that owns persistence. This keeps
+and does not apply this persistence plugin, alongside the tenant that owns persistence. This keeps
 externally backed types on equal footing with database-backed ones — same module boundary,
 Kotlin dependency rules, and resolver ownership — rather than relying on a filename convention to
 exclude them from a database they were never going to belong to.
@@ -610,11 +610,11 @@ upstream error handling, response-shape restoration, Viaduct GRT mapping, and no
 hydration. The application still owns the `HttpClient` lifecycle, endpoint, and authentication
 policy.
 
-Every `@db` type is validated during generation. A transitively reachable `@resolver` field
-is rejected because pg_graphql cannot resolve that field from the database. Types or fields
-backed by external services should remain outside that db — standard practice is a second,
-database-free tenant module, with `.notable.graphqls` as the fallback (see
-[Excluding Types](#excluding-types)).
+Every persistent `Node` not excluded by YAML is validated during generation. A transitively
+reachable `@resolver` field is rejected because pg_graphql cannot resolve that field from the
+database. Types or fields backed by external services should remain outside that persistence
+module — prefer a second, database-free tenant module, with `.notable.graphqls` as the fallback
+(see [Excluding Types](#excluding-types)).
 
 ## Create or Update a Database
 
