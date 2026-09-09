@@ -37,6 +37,13 @@ class PostgresqlOverlayTest {
             )
 
         val sql = PostgresqlOverlay.renderMigration(model)
+        val operation =
+            EffectiveModelToMigrationPlanMapper.map(model).operations.single()
+                as PostgresqlMigrationOperation.AddForeignKey
+        kotlin.test.assertEquals(
+            ForeignKeySpec("public", "teams", "owner_id", "public", "persons", "id"),
+            operation.foreignKey,
+        )
         assertContains(sql, "ADD CONSTRAINT \"teams_owner_id_fkey\"")
         assertContains(sql, "FOREIGN KEY (\"owner_id\")")
         assertContains(sql, "REFERENCES \"public\".\"persons\" (\"id\")")

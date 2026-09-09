@@ -4,68 +4,23 @@ import dev.viaduct.persistence.hibernate.EffectiveHibernateModel
 
 /** Combines id-column and scalar-array migration statements. */
 internal object PostgresqlMigrationRenderer {
-    fun render(model: EffectiveHibernateModel): String =
+    fun render(model: EffectiveHibernateModel): String = render(EffectiveModelToMigrationPlanMapper.map(model))
+
+    internal fun render(plan: PostgresqlMigrationPlan): String =
         buildString {
-            model.computedRelationships.forEach { relationship ->
-                relationship.edgeFields.forEach { field ->
-                    appendLine(EdgeFieldMigrationRenderer.render(relationship, field))
-                }
-            }
-            model.relationships
-                .distinctBy { listOf(it.schemaName, it.tableName, it.columnName) }
-                .forEach { appendLine(ForeignKeyMigrationRenderer.render(it)) }
-            model.computedRelationships.forEach { relationship ->
+            plan.operations.forEach { operation ->
                 appendLine(
-                    ForeignKeyMigrationRenderer.render(
-                        ForeignKeySpec(
-                            relationship.joinSchemaName,
-                            relationship.joinTableName,
-                            relationship.joinOwnerColumnName,
-                            relationship.ownerSchemaName,
-                            relationship.ownerTableName,
-                            relationship.ownerIdColumnName,
-                        ),
-                    ),
+                    when (operation) {
+                        is PostgresqlMigrationOperation.AddEdgeField ->
+                            EdgeFieldMigrationRenderer.render(operation.field)
+                        is PostgresqlMigrationOperation.AddForeignKey ->
+                            ForeignKeyMigrationRenderer.render(operation.foreignKey)
+                        is PostgresqlMigrationOperation.AddGlobalId ->
+                            GlobalIdMigrationRenderer.render(operation.globalId)
+                        is PostgresqlMigrationOperation.AddArrayCheck ->
+                            ArrayConstraintMigrationRenderer.render(operation.check)
+                    },
                 )
-                appendLine(
-                    ForeignKeyMigrationRenderer.render(
-                        ForeignKeySpec(
-                            relationship.joinSchemaName,
-                            relationship.joinTableName,
-                            relationship.joinTargetColumnName,
-                            relationship.targetSchemaName,
-                            relationship.targetTableName,
-                            relationship.targetIdColumnName,
-                        ),
-                    ),
-                )
-                relationship.edgeFields.filter { it.targetTableName != null }.forEach { field ->
-                    appendLine(
-                        ForeignKeyMigrationRenderer.render(
-                            ForeignKeySpec(
-                                relationship.joinSchemaName,
-                                relationship.joinTableName,
-                                field.columnName,
-                                requireNotNull(field.targetSchemaName),
-                                requireNotNull(field.targetTableName),
-                                requireNotNull(field.targetIdColumnName),
-                            ),
-                        ),
-                    )
-                }
-            }
-            model.entities.filter { it.generatedGlobalId }.forEach {
-                appendLine(GlobalIdMigrationRenderer.render(it))
-            }
-            model.arrays.filterNot { it.elementNullable }.forEach {
-                appendLine(ArrayConstraintMigrationRenderer.render(it))
-            }
-            model.computedRelationships.forEach { relationship ->
-                relationship.edgeFields.forEach { field ->
-                    EdgeFieldMigrationRenderer.render(relationship, field).takeIf(String::isNotEmpty)?.let {
-                        appendLine(it)
-                    }
-                }
             }
         }
 }

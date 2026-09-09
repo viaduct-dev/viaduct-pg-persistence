@@ -11,8 +11,11 @@ internal fun quoteIdentifier(value: String): String = "\"${value.replace("\"", "
 
 internal fun quoteLiteral(value: String): String = "'${value.replace("'", "''")}'"
 
-internal fun arrayCheckConstraintName(array: dev.viaduct.persistence.hibernate.EffectiveHibernateArray): String =
-    "viaduct_${array.tableName}_${array.columnName}_no_null_elements"
+internal fun arrayCheckConstraintName(
+    tableName: String,
+    columnName: String,
+): String =
+    "viaduct_${tableName}_${columnName}_no_null_elements"
         .replace(Regex("[^A-Za-z0-9_]"), "_")
         .take(POSTGRES_IDENTIFIER_MAX_LENGTH)
 
