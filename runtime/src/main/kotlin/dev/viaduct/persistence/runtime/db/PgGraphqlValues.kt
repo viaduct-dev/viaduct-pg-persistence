@@ -36,6 +36,13 @@ class PgGraphqlFilter private constructor(
             value: Any?,
         ): PgGraphqlFilter = comparison(field, "eq", value)
 
+        fun lte(
+            field: String,
+            value: Any?,
+        ): PgGraphqlFilter = comparison(field, "lte", value)
+
+        fun isNull(field: String): PgGraphqlFilter = comparison(field, "is", "NULL")
+
         fun oneOf(
             field: String,
             values: Iterable<Any?>,
@@ -55,6 +62,13 @@ class PgGraphqlFilter private constructor(
             PgGraphqlFilter(
                 buildJsonObject {
                     filters.forEach { filter -> filter.encoded().forEach { (field, value) -> put(field, value) } }
+                },
+            )
+
+        fun anyOf(vararg filters: PgGraphqlFilter): PgGraphqlFilter =
+            PgGraphqlFilter(
+                buildJsonObject {
+                    put("or", buildJsonArray { filters.forEach { add(it.encoded()) } })
                 },
             )
 
