@@ -3,6 +3,7 @@ package dev.viaduct.persistence.hibernate
 import org.w3c.dom.Element
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 class HbmXmlWriterTest {
@@ -12,7 +13,7 @@ class HbmXmlWriterTest {
             HbmMappingDocument(
                 listOf(
                     HbmEntityMapping(
-                        entityName = "Team & Core",
+                        entityName = "Team & \"Core\"",
                         tableName = "teams",
                         schemaName = "tenant",
                         attributes =
@@ -47,7 +48,7 @@ class HbmXmlWriterTest {
 
         val document = HbmXmlWriter().document(mapping)
         val entity = document.elements("class").single()
-        assertEquals("Team & Core", entity.getAttribute("entity-name"))
+        assertEquals("Team & \"Core\"", entity.getAttribute("entity-name"))
         assertEquals("tenant", entity.getAttribute("schema"))
 
         assertEquals("assigned", document.elements("generator").single().getAttribute("class"))
@@ -67,6 +68,21 @@ class HbmXmlWriterTest {
         val manyToMany = bag.elements("many-to-many").single()
         assertEquals("label_id", manyToMany.getAttribute("column"))
         assertEquals("fk_label", manyToMany.getAttribute("foreign-key"))
+    }
+
+    @Test
+    fun `rejects incomplete many-to-many mappings`() {
+        assertFailsWith<IllegalArgumentException> {
+            HbmToManyMapping(
+                name = "members",
+                targetEntityName = "Person",
+                keyColumnName = "team_id",
+                inverse = false,
+                joinTableName = "team_members",
+                targetColumnName = "person_id",
+                targetForeignKeyName = null,
+            )
+        }
     }
 
     private fun org.w3c.dom.Document.elements(name: String): List<Element> = documentElement.elements(name)

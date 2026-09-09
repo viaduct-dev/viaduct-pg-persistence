@@ -7,10 +7,10 @@ import kotlin.test.assertEquals
 class PersistenceXmlWriterTest {
     @Test
     fun `renders persistence configuration from the StringTemplate resource`() {
-        val document = PersistenceXmlWriter().document("unit & integration")
+        val document = PersistenceXmlWriter().document("unit & \"integration\"")
         val unit = document.elements("persistence-unit").single()
 
-        assertEquals("unit & integration", unit.getAttribute("name"))
+        assertEquals("unit & \"integration\"", unit.getAttribute("name"))
         assertEquals("RESOURCE_LOCAL", unit.getAttribute("transaction-type"))
         assertEquals(
             "META-INF/viaduct-persistence.hbm.xml",

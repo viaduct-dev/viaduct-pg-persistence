@@ -29,11 +29,23 @@ internal class MigrationRendererRegistry private constructor(
     }
 
     companion object {
-        fun create(renderers: List<MigrationRenderer<*>>): MigrationRendererRegistry {
+        fun create(
+            renderers: List<MigrationRenderer<*>>,
+            operationTypes: Set<KClass<out PostgresqlMigrationOperation>> = PostgresqlMigrationOperation.types,
+        ): MigrationRendererRegistry {
             val byOperationType = renderers.groupBy(MigrationRenderer<*>::operationType)
             val duplicateTypes = byOperationType.filterValues { it.size > 1 }.keys
             require(duplicateTypes.isEmpty()) {
                 "Multiple migration renderers registered for ${duplicateTypes.joinToString { it.simpleName.orEmpty() }}"
+            }
+            val missingTypes = operationTypes - byOperationType.keys
+            require(missingTypes.isEmpty()) {
+                "No migration renderers registered for ${missingTypes.joinToString { it.simpleName.orEmpty() }}"
+            }
+            val unexpectedTypes = byOperationType.keys - operationTypes
+            require(unexpectedTypes.isEmpty()) {
+                val names = unexpectedTypes.joinToString { it.simpleName.orEmpty() }
+                "Unexpected migration renderers registered for $names"
             }
             return MigrationRendererRegistry(
                 java.util.Map.copyOf(byOperationType.mapValues { it.value.single() }),

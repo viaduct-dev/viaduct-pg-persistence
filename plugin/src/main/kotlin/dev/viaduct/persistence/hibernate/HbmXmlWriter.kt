@@ -10,7 +10,11 @@ internal class HbmXmlWriter {
         associationSchemaName: String,
     ): Document = document(PersistenceModelToHbmMapper.map(model, associationSchemaName))
 
-    internal fun document(mapping: HbmMappingDocument): Document = StringTemplateXmlRenderer.document(TEMPLATE_RESOURCE, mapping)
+    internal fun document(mapping: HbmMappingDocument): Document =
+        StringTemplateXmlRenderer.document(
+            templateResource = TEMPLATE_RESOURCE,
+            model = mapping,
+        )
 
     private companion object {
         private const val TEMPLATE_RESOURCE =

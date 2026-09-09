@@ -3,14 +3,14 @@ delimiters "$", "$"
 main(mdl) ::= <<
 <?xml version="1.0" encoding="UTF-8"?>
 <persistence xmlns="https://jakarta.ee/xml/ns/persistence" version="3.2">
-  <persistence-unit name="$mdl.persistenceUnitName; format="xml-encode"$" transaction-type="RESOURCE_LOCAL">
+  <persistence-unit name="$mdl.persistenceUnitName; format="xml-attribute"$" transaction-type="RESOURCE_LOCAL">
     <mapping-file>META-INF/viaduct-persistence.hbm.xml</mapping-file>
     <exclude-unlisted-classes>true</exclude-unlisted-classes>
     <properties>
       <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect" />
       <property name="hibernate.boot.allow_jdbc_metadata_access" value="false" />
-      <property name="hibernate.implicit_naming_strategy" value="$mdl.implicitNamingStrategy; format="xml-encode"$" />
-      <property name="hibernate.physical_naming_strategy" value="$mdl.physicalNamingStrategy; format="xml-encode"$" />
+      <property name="hibernate.implicit_naming_strategy" value="$mdl.implicitNamingStrategy; format="xml-attribute"$" />
+      <property name="hibernate.physical_naming_strategy" value="$mdl.physicalNamingStrategy; format="xml-attribute"$" />
     </properties>
   </persistence-unit>
 </persistence>

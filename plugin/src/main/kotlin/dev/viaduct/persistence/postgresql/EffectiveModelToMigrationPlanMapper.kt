@@ -2,6 +2,7 @@ package dev.viaduct.persistence.postgresql
 
 import dev.viaduct.persistence.hibernate.EffectiveHibernateComputedRelationship
 import dev.viaduct.persistence.hibernate.EffectiveHibernateModel
+import kotlin.reflect.KClass
 
 private typealias MigrationOperations = MutableList<PostgresqlMigrationOperation>
 
@@ -49,6 +50,16 @@ internal sealed interface PostgresqlMigrationOperation {
     data class AddArrayCheck(
         val check: ArrayCheckSpec,
     ) : PostgresqlMigrationOperation
+
+    companion object {
+        val types: Set<KClass<out PostgresqlMigrationOperation>> =
+            java.util.Set.of(
+                AddEdgeField::class,
+                AddForeignKey::class,
+                AddGlobalId::class,
+                AddArrayCheck::class,
+            )
+    }
 }
 
 /** Maps effective Hibernate objects into an ordered, renderer-independent migration plan. */

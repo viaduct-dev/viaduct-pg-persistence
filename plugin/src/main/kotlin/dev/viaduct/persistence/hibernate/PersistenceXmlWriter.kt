@@ -7,10 +7,10 @@ internal class PersistenceXmlWriter {
     fun document(persistenceUnitName: String): Document =
         StringTemplateXmlRenderer.document(
             TEMPLATE_RESOURCE,
-            mapOf(
-                "persistenceUnitName" to persistenceUnitName,
-                "implicitNamingStrategy" to ViaductImplicitNamingStrategy::class.java.name,
-                "physicalNamingStrategy" to ViaductPhysicalNamingStrategy::class.java.name,
+            PersistenceXmlModel(
+                persistenceUnitName = persistenceUnitName,
+                implicitNamingStrategy = ViaductImplicitNamingStrategy::class.java.name,
+                physicalNamingStrategy = ViaductPhysicalNamingStrategy::class.java.name,
             ),
         )
 
@@ -19,3 +19,9 @@ internal class PersistenceXmlWriter {
             "/dev/viaduct/persistence/hibernate/viaduct-persistence.xml.stg"
     }
 }
+
+private data class PersistenceXmlModel(
+    val persistenceUnitName: String,
+    val implicitNamingStrategy: String,
+    val physicalNamingStrategy: String,
+)

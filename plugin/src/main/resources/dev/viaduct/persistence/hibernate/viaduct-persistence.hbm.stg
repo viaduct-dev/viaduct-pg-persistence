@@ -8,7 +8,7 @@ $mdl.entities:{entity |$renderEntity(entity)$}$
 >>
 
 renderEntity(entity) ::= <<
-  <class entity-name="$entity.entityName; format="xml-encode"$" table="$entity.tableName; format="xml-encode"$"$if(entity.schemaName)$ schema="$entity.schemaName; format="xml-encode"$"$endif$ lazy="false">
+  <class entity-name="$entity.entityName; format="xml-attribute"$" table="$entity.tableName; format="xml-attribute"$"$if(entity.schemaName)$ schema="$entity.schemaName; format="xml-attribute"$"$endif$ lazy="false">
 $entity.attributes:{attribute |$renderAttribute(attribute)$}$
   </class>
 >>
@@ -18,27 +18,27 @@ $if(attribute.basic)$$renderBasic(attribute.basic)$$endif$$if(attribute.toOne)$$
 >>
 
 renderBasic(basic) ::= <<
-    <$basic.elementName$ name="$basic.name; format="xml-encode"$" type="$basic.hibernateType; format="xml-encode"$"$if(!basic.primaryKey)$ not-null="$basic.notNull$"$endif$$if(basic.noInsert)$ insert="false"$endif$$if(basic.noUpdate)$ update="false"$endif$>
-      <column name="$basic.columnName; format="xml-encode"$" not-null="$basic.notNull$"$if(basic.columnDefinition)$ sql-type="$basic.columnDefinition; format="xml-encode"$"$endif$ />
+    <$if(basic.primaryKey)$id$else$property$endif$ name="$basic.name; format="xml-attribute"$" type="$basic.hibernateType; format="xml-attribute"$"$if(!basic.primaryKey)$ not-null="$if(basic.nullable)$false$else$true$endif$"$endif$$if(!basic.insertable)$ insert="false"$endif$$if(!basic.updatable)$ update="false"$endif$>
+      <column name="$basic.columnName; format="xml-attribute"$" not-null="$if(basic.nullable)$false$else$true$endif$"$if(basic.columnDefinition)$ sql-type="$basic.columnDefinition; format="xml-attribute"$"$endif$ />
 $if(basic.primaryKey)$
       <generator class="assigned" />
 $endif$
-    </$basic.elementName$>
+    </$if(basic.primaryKey)$id$else$property$endif$>
 >>
 
 renderToOne(toOne) ::= <<
-    <many-to-one name="$toOne.name; format="xml-encode"$" entity-name="$toOne.targetEntityName; format="xml-encode"$" not-null="$toOne.notNull$" lazy="proxy" foreign-key="$toOne.foreignKeyName; format="xml-encode"$">
-      <column name="$toOne.columnName; format="xml-encode"$" not-null="$toOne.notNull$" sql-type="uuid" />
+    <many-to-one name="$toOne.name; format="xml-attribute"$" entity-name="$toOne.targetEntityName; format="xml-attribute"$" not-null="$if(toOne.nullable)$false$else$true$endif$" lazy="proxy" foreign-key="$toOne.foreignKeyName; format="xml-attribute"$">
+      <column name="$toOne.columnName; format="xml-attribute"$" not-null="$if(toOne.nullable)$false$else$true$endif$" sql-type="uuid" />
     </many-to-one>
 >>
 
 renderToMany(toMany) ::= <<
-    <bag name="$toMany.name; format="xml-encode"$" lazy="true"$if(toMany.inverse)$ inverse="true"$endif$$if(toMany.joinTableName)$ table="$toMany.joinTableName; format="xml-encode"$"$endif$$if(toMany.joinSchemaName)$ schema="$toMany.joinSchemaName; format="xml-encode"$"$endif$>
-      <key column="$toMany.keyColumnName; format="xml-encode"$" not-null="true" />
-$if(toMany.oneToMany)$
-      <one-to-many entity-name="$toMany.targetEntityName; format="xml-encode"$" />
+    <bag name="$toMany.name; format="xml-attribute"$" lazy="true"$if(toMany.inverse)$ inverse="true"$endif$$if(toMany.joinTableName)$ table="$toMany.joinTableName; format="xml-attribute"$"$endif$$if(toMany.joinSchemaName)$ schema="$toMany.joinSchemaName; format="xml-attribute"$"$endif$>
+      <key column="$toMany.keyColumnName; format="xml-attribute"$" not-null="true" />
+$if(toMany.targetColumnName)$
+      <many-to-many entity-name="$toMany.targetEntityName; format="xml-attribute"$" foreign-key="$toMany.targetForeignKeyName; format="xml-attribute"$" column="$toMany.targetColumnName; format="xml-attribute"$" />
 $else$
-      <many-to-many entity-name="$toMany.targetEntityName; format="xml-encode"$" foreign-key="$toMany.targetForeignKeyName; format="xml-encode"$" column="$toMany.targetColumnName; format="xml-encode"$" />
+      <one-to-many entity-name="$toMany.targetEntityName; format="xml-attribute"$" />
 $endif$
     </bag>
 >>

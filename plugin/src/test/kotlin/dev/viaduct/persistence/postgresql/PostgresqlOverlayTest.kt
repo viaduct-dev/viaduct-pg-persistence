@@ -27,6 +27,22 @@ class PostgresqlOverlayTest {
     }
 
     @Test
+    fun `rejects a registry missing an operation renderer`() {
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                MigrationRendererRegistry.create(
+                    listOf(
+                        EdgeFieldMigrationRenderer,
+                        ForeignKeyMigrationRenderer,
+                        GlobalIdMigrationRenderer,
+                    ),
+                )
+            }
+
+        assertContains(error.message.orEmpty(), "AddArrayCheck")
+    }
+
+    @Test
     fun `dispatches each operation to the renderer registered for its class`() {
         val plan =
             PostgresqlMigrationPlan(
