@@ -36,6 +36,11 @@ class PgGraphqlFilter private constructor(
             value: Any?,
         ): PgGraphqlFilter = comparison(field, "eq", value)
 
+        fun neq(
+            field: String,
+            value: Any?,
+        ): PgGraphqlFilter = comparison(field, "neq", value)
+
         fun lte(
             field: String,
             value: Any?,
