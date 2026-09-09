@@ -55,6 +55,14 @@ internal class PgGraphqlTransport(
         headers: Map<String, String>,
         query: GraphqlQuery,
     ): DbResult<JsonObject> {
+        val result = executeElementResult(headers, query)
+        return DbResult(result.data as? JsonObject, result.errors)
+    }
+
+    suspend fun executeElementResult(
+        headers: Map<String, String>,
+        query: GraphqlQuery,
+    ): DbResult<JsonElement> {
         val response =
             httpClient.post(endpoint) {
                 headers.forEach { (name, value) ->
@@ -73,9 +81,7 @@ internal class PgGraphqlTransport(
                 )
             }
         val envelope = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val data =
-            (envelope["data"] as? JsonObject)
-                ?.get(query.responseKey) as? JsonObject
+        val data = (envelope["data"] as? JsonObject)?.get(query.responseKey)
         val errors =
             (envelope["errors"] as? JsonArray)
                 ?.map { parseError(it.jsonObject) }

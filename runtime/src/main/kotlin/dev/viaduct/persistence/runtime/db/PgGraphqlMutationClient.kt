@@ -201,4 +201,5 @@ data class PgGraphqlEntity(
     internal val insertField = "insertInto${typeName}Collection"
     internal val updateField = "update${typeName}Collection"
     internal val deleteField = "deleteFrom${typeName}Collection"
+    val collectionField = typeName.replaceFirstChar(Char::lowercase) + "Collection"
 }
