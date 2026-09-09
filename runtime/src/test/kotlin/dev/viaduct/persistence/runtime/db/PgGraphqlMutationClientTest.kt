@@ -13,6 +13,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import viaduct.api.types.Input
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,6 +21,43 @@ import kotlin.test.assertFailsWith
 class PgGraphqlMutationClientTest {
     private val json = Json
     private val person = PgGraphqlEntity("Person")
+
+    @Test
+    fun `insert accepts a Viaduct input GRT directly`() =
+        runBlocking {
+            var requestBody = ""
+            val client =
+                client { request ->
+                    requestBody = request.bodyText()
+                    """{"data":{"insertIntoPersonCollection":{"affectedCount":1}}}"""
+                }
+
+            client.insert(person, TestInput(mapOf("name" to "Ada", "active" to true)))
+
+            val objects =
+                json
+                    .parseToJsonElement(requestBody)
+                    .jsonObject
+                    .getValue("variables")
+                    .jsonObject
+                    .getValue("objects") as kotlinx.serialization.json.JsonArray
+            assertEquals(
+                "Ada",
+                objects
+                    .single()
+                    .jsonObject
+                    .getValue("name")
+                    .jsonPrimitive.content,
+            )
+            assertEquals(
+                "true",
+                objects
+                    .single()
+                    .jsonObject
+                    .getValue("active")
+                    .jsonPrimitive.content,
+            )
+        }
 
     @Test
     fun `insert uses pg_graphql collection mutation variables and per-call headers`() =
@@ -149,4 +187,8 @@ class PgGraphqlMutationClientTest {
 
     private fun io.ktor.client.request.HttpRequestData.bodyText(): String =
         (body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+
+    private class TestInput(
+        val inputData: Map<String, Any?>,
+    ) : Input
 }

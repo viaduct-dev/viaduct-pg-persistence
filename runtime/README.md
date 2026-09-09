@@ -62,17 +62,19 @@ calls. Credentials are passed per call and values are always sent as GraphQL var
 val writes = PgGraphqlMutationClient(httpClient, "$postgresGraphqlEndpoint/graphql/v1")
 val person = PgGraphqlEntity("Person")
 
-val result = writes.updateResult(
+val result = writes.insert(
     entity = person,
-    set = buildJsonObject { put("name", input.name) },
-    filter = buildJsonObject {
-        put("uuidId", buildJsonObject { put("eq", input.id) })
-    },
-    atMost = 1,
+    input = ctx.arguments.input,
     selection = "affectedCount records { uuidId name }",
     headers = mapOf("Authorization" to "Bearer $accessToken", "apikey" to anonKey),
 )
 ```
+
+The `insert`, `update`, and `delete` overloads accept Viaduct input GRTs directly. They preserve the
+input's GraphQL field names, recursively encode nested input values, and convert `GlobalID` values
+to their internal IDs. JSON overloads remain available for applications that do not start with a
+Viaduct input GRT. Update callers still provide the row filter separately; delete treats every
+field in its input as an equality predicate.
 
 Use the `*Result` methods to translate structured database errors into application payload errors.
 The strict `insert`, `update`, and `delete` methods throw `UpstreamGraphqlException` when pg_graphql
