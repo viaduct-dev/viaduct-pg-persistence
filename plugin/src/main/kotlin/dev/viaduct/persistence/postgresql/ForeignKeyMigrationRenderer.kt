@@ -12,8 +12,12 @@ internal data class ForeignKeySpec(
 )
 
 /** Creates the physical constraint omitted by Hibernate's dynamic-map HBM schema model. */
-internal object ForeignKeyMigrationRenderer {
+internal object ForeignKeyMigrationRenderer :
+    MigrationRenderer<PostgresqlMigrationOperation.AddForeignKey> {
     private const val POSTGRESQL_IDENTIFIER_LIMIT = 63
+    override val operationType = PostgresqlMigrationOperation.AddForeignKey::class
+
+    override fun render(operation: PostgresqlMigrationOperation.AddForeignKey): String = render(operation.foreignKey)
 
     fun render(relationship: EffectiveHibernateRelationship): String =
         render(

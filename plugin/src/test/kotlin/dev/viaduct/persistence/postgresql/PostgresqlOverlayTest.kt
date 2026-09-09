@@ -14,6 +14,34 @@ import kotlin.test.assertFalse
 
 class PostgresqlOverlayTest {
     @Test
+    fun `dispatches each operation to the renderer registered for its class`() {
+        val plan =
+            PostgresqlMigrationPlan(
+                listOf(
+                    PostgresqlMigrationOperation.AddEdgeField(
+                        EdgeFieldSpec("public", "memberships", "role", "text"),
+                    ),
+                    PostgresqlMigrationOperation.AddForeignKey(
+                        ForeignKeySpec("public", "teams", "owner_id", "public", "people", "id"),
+                    ),
+                    PostgresqlMigrationOperation.AddGlobalId(
+                        GlobalIdSpec("Team", "public", "teams", "internal_id", "id"),
+                    ),
+                    PostgresqlMigrationOperation.AddArrayCheck(
+                        ArrayCheckSpec("public", "teams", "labels"),
+                    ),
+                ),
+            )
+
+        val sql = PostgresqlMigrationRenderer.render(plan)
+
+        assertContains(sql, "viaduct_edge_field")
+        assertContains(sql, "viaduct_foreign_key")
+        assertContains(sql, "viaduct_global_id")
+        assertContains(sql, "viaduct_array_check")
+    }
+
+    @Test
     fun `creates physical foreign keys for dynamic relationships`() {
         val model =
             EffectiveHibernateModel(

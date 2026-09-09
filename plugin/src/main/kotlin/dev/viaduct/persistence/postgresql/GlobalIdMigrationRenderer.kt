@@ -1,8 +1,12 @@
 package dev.viaduct.persistence.postgresql
 
 /** Renders the id-column migration for generated global identifiers. */
-internal object GlobalIdMigrationRenderer {
-    fun render(entity: GlobalIdSpec): String {
+internal object GlobalIdMigrationRenderer :
+    MigrationRenderer<PostgresqlMigrationOperation.AddGlobalId> {
+    override val operationType = PostgresqlMigrationOperation.AddGlobalId::class
+
+    override fun render(operation: PostgresqlMigrationOperation.AddGlobalId): String {
+        val entity = operation.globalId
         val internalIdColumn = entity.internalIdColumnName
         val globalIdColumn = entity.globalIdColumnName
         val schemaLiteral = quoteLiteral(entity.schemaName)

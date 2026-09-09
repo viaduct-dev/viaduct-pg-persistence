@@ -1,8 +1,12 @@
 package dev.viaduct.persistence.postgresql
 
 /** Renders the check constraint that enforces non-null scalar-array elements. */
-internal object ArrayConstraintMigrationRenderer {
-    fun render(array: ArrayCheckSpec): String {
+internal object ArrayConstraintMigrationRenderer :
+    MigrationRenderer<PostgresqlMigrationOperation.AddArrayCheck> {
+    override val operationType = PostgresqlMigrationOperation.AddArrayCheck::class
+
+    override fun render(operation: PostgresqlMigrationOperation.AddArrayCheck): String {
+        val array = operation.check
         val constraintName = arrayCheckConstraintName(array.tableName, array.columnName)
         return """
             DO ${'$'}viaduct_array_check${'$'}
