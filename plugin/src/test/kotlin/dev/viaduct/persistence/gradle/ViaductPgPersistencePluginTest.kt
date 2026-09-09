@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class ViaductPersistencePluginTest {
+class ViaductPgPersistencePluginTest {
     @Test
     fun `persistence YAML changes invalidate generation and update mappings`() {
         val projectDirectory = Files.createTempDirectory("viaduct-persistence-policy-input").toFile()
@@ -21,17 +21,17 @@ class ViaductPersistencePluginTest {
                 "interface Node { id: ID! } type Group implements Node { id: ID!, name: String }",
             )
 
-            val first = runGradle(projectDirectory, "generateViaductPersistenceModel")
-            assertEquals(TaskOutcome.SUCCESS, first.task(":generateViaductPersistenceModel")?.outcome)
-            val second = runGradle(projectDirectory, "generateViaductPersistenceModel")
-            assertEquals(TaskOutcome.UP_TO_DATE, second.task(":generateViaductPersistenceModel")?.outcome)
+            val first = runGradle(projectDirectory, "generateViaductPgPersistenceModel")
+            assertEquals(TaskOutcome.SUCCESS, first.task(":generateViaductPgPersistenceModel")?.outcome)
+            val second = runGradle(projectDirectory, "generateViaductPgPersistenceModel")
+            assertEquals(TaskOutcome.UP_TO_DATE, second.task(":generateViaductPgPersistenceModel")?.outcome)
 
             val config = projectDirectory.resolve("src/main/viaduct/persistence.yaml")
             config.parentFile.ensureDirectory()
             config.writeText("semanticNotNull:\n  fields: [Group.name]\n")
-            val third = runGradle(projectDirectory, "generateViaductPersistenceModel")
+            val third = runGradle(projectDirectory, "generateViaductPgPersistenceModel")
 
-            assertEquals(TaskOutcome.SUCCESS, third.task(":generateViaductPersistenceModel")?.outcome)
+            assertEquals(TaskOutcome.SUCCESS, third.task(":generateViaductPgPersistenceModel")?.outcome)
             val mapping =
                 projectDirectory
                     .resolve("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
@@ -71,7 +71,7 @@ class ViaductPersistencePluginTest {
             moduleSchemaDir.resolve("Model.graphqls").writeText(effectiveSchema())
             runGradle(
                 projectDirectory,
-                "generateViaductPersistenceModel",
+                "generateViaductPgPersistenceModel",
             )
             val mapping =
                 projectDirectory
@@ -135,7 +135,7 @@ class ViaductPersistencePluginTest {
             writeConsumerFiles(projectDirectory, "resource-consumer", resourceBuildScript())
             writeSchema(projectDirectory, "interface Node { id: ID! }\ntype Group implements Node { id: ID! }")
             val result = runGradle(projectDirectory, "inspectGeneratedResources")
-            assertTrue(result.output.contains("> Task :generateViaductPersistenceModel"))
+            assertTrue(result.output.contains("> Task :generateViaductPgPersistenceModel"))
         } finally {
             projectDirectory.deleteRecursively()
         }
@@ -206,12 +206,12 @@ class ViaductPersistencePluginTest {
         """
         plugins {
             kotlin("jvm") version "2.1.0"
-            id("dev.viaduct.graphql-persistence")
+            id("dev.viaduct.pg-persistence")
         }
 
         tasks.register("assembleViaductCentralSchema")
 
-        viaductPersistence {
+        viaductPgPersistence {
             centralSchemaDirectory.set(file("schema"))
             packageName.set("synthetic.generated")
         }
@@ -227,10 +227,10 @@ class ViaductPersistencePluginTest {
         """
         plugins {
             kotlin("jvm") version "2.1.0"
-            id("dev.viaduct.graphql-persistence")
+            id("dev.viaduct.pg-persistence")
         }
 
-        viaductPersistence {
+        viaductPgPersistence {
             packageName.set("synthetic.generated")
         }
         """.trimIndent()
@@ -239,12 +239,12 @@ class ViaductPersistencePluginTest {
         """
         plugins {
             kotlin("jvm") version "2.1.0"
-            id("dev.viaduct.graphql-persistence")
+            id("dev.viaduct.pg-persistence")
         }
 
         tasks.register("assembleViaductCentralSchema")
 
-        viaductPersistence {
+        viaductPgPersistence {
             centralSchemaDirectory.set(file("schema"))
             packageName.set("synthetic.generated")
         }

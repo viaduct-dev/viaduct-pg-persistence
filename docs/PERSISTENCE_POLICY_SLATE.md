@@ -6,7 +6,7 @@ Proposed.
 
 ## Summary
 
-Move persistence selection policy out of the `viaductPersistence` Gradle DSL and into a YAML file
+Move persistence selection policy out of the `viaductPgPersistence` Gradle DSL and into a YAML file
 that travels with the GraphQL schema. Persistence remains discovery-first: eligible Viaduct `Node`
 objects are persisted unless they are named in a denylist.
 
@@ -45,7 +45,7 @@ The file is optional. An absent file is equivalent to an empty configuration. Gr
 in `build.gradle.kts`.
 
 ```kotlin
-viaductPersistence {
+viaductPgPersistence {
     persistenceConfigFile.set(layout.projectDirectory.file("config/persistence.yaml"))
 }
 ```
@@ -200,7 +200,7 @@ src/main/viaduct/persistence.yaml: persisted field 'Order.customer' targets deni
 ## Migration
 
 1. Add `src/main/viaduct/persistence.yaml`.
-2. Remove `includedTypeNames` from `viaductPersistence`. Types omitted from the old allowlist must be
+2. Remove `includedTypeNames` from `viaductPgPersistence`. Types omitted from the old allowlist must be
    added to `denyList.types` if they should remain non-persistent.
 3. Move the contents of `persistence-relationships.yaml` under the `relationships` key.
 4. Add semantic non-null coordinates only after existing data satisfies the proposed constraints;

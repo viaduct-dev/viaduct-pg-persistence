@@ -5,7 +5,7 @@ import org.gradle.api.Project
 /** Coordinates the independent build registrations applied to a Kotlin JVM project. */
 internal class KotlinPersistenceProjectConfigurator(
     private val project: Project,
-    private val extension: ViaductPersistenceExtension,
+    private val extension: ViaductPgPersistenceExtension,
 ) {
     fun configure() {
         val layout = PersistenceBuildLayout(project)

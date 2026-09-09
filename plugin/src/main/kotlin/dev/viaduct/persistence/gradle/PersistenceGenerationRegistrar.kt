@@ -7,13 +7,13 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 /** Registers schema validation, model generation, and generated source/resource wiring. */
 internal class PersistenceGenerationRegistrar(
     private val project: Project,
-    private val extension: ViaductPersistenceExtension,
+    private val extension: ViaductPgPersistenceExtension,
     private val layout: PersistenceBuildLayout,
 ) {
     fun register() {
         val validate =
             project.tasks.register(
-                "validateViaductPersistenceSchema",
+                "validateViaductPgPersistenceSchema",
                 ValidatePgGraphqlDbsTask::class.java,
             ) {
                 it.group = "verification"
@@ -22,7 +22,7 @@ internal class PersistenceGenerationRegistrar(
             }
         val generate =
             project.tasks.register(
-                "generateViaductPersistenceModel",
+                "generateViaductPgPersistenceModel",
                 GenerateHibernateSchemaModelTask::class.java,
             ) {
                 it.group = "build"
@@ -44,7 +44,7 @@ internal class PersistenceGenerationRegistrar(
      * and only exists on a Viaduct *application* project — a Viaduct *module* project (e.g. a
      * dedicated persistence tenant with no sibling application in the same Gradle project) never
      * has it. Depend on it when present (today's monolithic single-project consumers, unchanged);
-     * skip the dependency otherwise and rely on [ViaductPersistenceExtensionDefaults]'s
+     * skip the dependency otherwise and rely on [ViaductPgPersistenceExtensionDefaults]'s
      * `centralSchemaDirectory` convention falling back to the module's own local schema directory.
      */
     private fun dependOnCentralSchemaAssemblyIfPresent(task: org.gradle.api.Task) {

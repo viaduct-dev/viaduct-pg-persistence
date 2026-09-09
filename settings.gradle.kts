@@ -22,7 +22,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "viaduct-graphql-persistence"
+rootProject.name = "viaduct-pg-persistence"
 
 include(
     ":runtime",
