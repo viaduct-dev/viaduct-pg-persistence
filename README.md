@@ -8,8 +8,9 @@ separately in GraphQL, Kotlin, and database mapping code.
 
 The project has two parts:
 
-- The **Gradle plugin** reads the assembled GraphQL schema and generates the database model,
-  Kotlin persistence classes, and PostgreSQL integration files.
+- The **Gradle plugin** reads the assembled GraphQL schema and generates a semantic persistence
+  model, dynamic Hibernate metadata, and PostgreSQL integration files. It does not generate
+  Kotlin or Java entity classes.
 - The **runtime library** sends Viaduct's selected fields to `pg_graphql` and converts the response
   back into Viaduct result types.
 
@@ -33,14 +34,12 @@ Make the plugin and libraries available to Gradle:
 // settings.gradle.kts
 pluginManagement {
     repositories {
-        maven("https://viaduct-dev.github.io/viaduct-pg-persistence/")
         gradlePluginPortal()
     }
 }
 
 dependencyResolutionManagement {
     repositories {
-        maven("https://viaduct-dev.github.io/viaduct-pg-persistence/")
         mavenCentral()
     }
 }
@@ -83,9 +82,9 @@ type GroupMember implements Node {
 }
 ```
 
-Put types backed by another service, or types that should not become database tables, in files
-ending with `.notable.graphqls`. This is possible, but not recommended: standard practice is a
-second, database-free Viaduct tenant module instead. See [Excluding Types](#excluding-types).
+Exclude an occasional `Node` that should not become a table with `denyList.types` in
+`src/main/viaduct/persistence.yaml`. If a tenant has many externally backed types, put them in a
+separate, database-free Viaduct tenant module instead. See [Excluding Types](#excluding-types).
 
 ### 4. Generate the database model
 
@@ -239,6 +238,23 @@ edge types do not produce separate entity tables. `pageInfo`, cursors, and conne
 are API fields and do not change the persistence mapping. Scalar and object fields on an edge are
 persisted on the association row when the relationship uses a join table.
 
+Viaduct supplies `PageInfo`. Its pagination fields are equivalent to:
+
+```graphql
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+```
+
+A cursor is an opaque position token produced by `pg_graphql`, not an offset or a persistent
+column defined by this library. The runtime returns `startCursor`, `endCursor`, and each edge
+cursor unchanged. A resolver passes one of those values back as `after` or `before`; `pg_graphql`
+then applies pagination in the database. For a join-table-backed connection, the cursor identifies
+the association row being paginated. Applications must not decode cursors or construct them.
+
 For every join-table-backed connection, including an edge containing only `node` and `cursor`, the
 pg_graphql adapter reads the real `membersAssociations` connection, applies pagination to those
 association rows, selects the row's `node` relationship, and unwraps each row into the authored
@@ -274,9 +290,15 @@ viaductPgPersistence {
 }
 ```
 
-The raw pg_graphql schema is an internal transport surface, not the authored public API. PostgreSQL
-columns required for filtering and pg_graphql's automatic inverse foreign-key relationships may
-also be present there. Viaduct remains the public schema and controls which fields clients can use.
+Persistence policy belongs in `persistence.yaml`. Build integration remains Gradle configuration:
+the association schema, schema-diff connection, replacement HBM, naming strategies, metadata
+customizers, and an alternate YAML file location are properties of `viaductPgPersistence` because
+they control the build rather than the GraphQL schema and persistence configuration.
+
+The pg_graphql schema is used only for communication between the resolver and PostgreSQL.
+PostgreSQL columns required for filtering and pg_graphql's automatic inverse foreign-key
+relationships may also be present there. Viaduct's GraphQL schema controls which fields clients
+can use.
 
 Supported scalar mappings are:
 
@@ -293,8 +315,12 @@ Supported scalar mappings are:
 | `BigDecimal` | `java.math.BigDecimal` |
 | `BigInteger` | `java.math.BigInteger` |
 | `JSON` | `String`, stored as `jsonb` |
-| GraphQL enum | Generated Kotlin enum |
+| GraphQL enum | String-backed dynamic Hibernate property |
 | One-dimensional scalar list | PostgreSQL array |
+
+Lists have two supported persistence shapes: a one-dimensional list of a supported scalar or enum
+is stored as a PostgreSQL array, and a list or connection of persistent `Node` objects is stored as
+a relationship. Nested lists and lists of arbitrary non-persistent objects are not supported.
 
 Resolver-backed fields that do not form relationships between included persistent types are not
 persisted. A type reachable from a persistent `Node` cannot contain a transitively reachable
@@ -302,22 +328,22 @@ persisted. A type reachable from a persistent `Node` cannot contain a transitive
 
 ### Excluding Types
 
-Put externally backed or resolver-only types in a file ending in `.notable.graphqls`:
+Use the persistence-policy denylist for an occasional type that implements `Node` but should not
+become a table:
 
-```text
-src/main/viaduct/schema/GitHub.notable.graphqls
+```yaml
+denyList:
+  types:
+    - ExternalProfile
 ```
 
-Definitions in notable files are excluded from persistence discovery. A notable file cannot
-contain GraphQL extensions, and an ordinary file cannot redefine or extend a type defined in a
-notable file. These cases fail generation instead of producing a partial database model.
+If a tenant needs to deny many types, split the schema into two Viaduct tenant modules: one owns
+the database-backed types and applies this plugin; the other owns externally backed types and does
+not apply it. That keeps persistence ownership aligned with the module boundary.
 
-`.notable.graphqls` works, but is not the recommended way to keep externally backed types out of
-the database. Standard practice is a second Viaduct tenant module that never applies this plugin
-and does not apply this persistence plugin, alongside the tenant that owns persistence. This keeps
-externally backed types on equal footing with database-backed ones — same module boundary,
-Kotlin dependency rules, and resolver ownership — rather than relying on a filename convention to
-exclude them from a database they were never going to belong to.
+Files ending in `.notable.graphqls` remain a compatibility fallback. Definitions in those files
+are excluded from discovery, but notable files cannot contain GraphQL extensions and ordinary
+files cannot redefine or extend their types. Prefer the explicit YAML denylist or a module split.
 
 ### Persistence Policy YAML
 
@@ -363,8 +389,9 @@ rules.
 
 #### Semantic Non-null
 
-`semanticNotNull` makes the persistence representation stricter than the authored GraphQL schema.
-For example:
+`semanticNotNull` is persistence policy. It makes the database representation stricter than the
+authored GraphQL schema; it is not a GraphQL directive and does not advertise stronger nullability
+to API clients. For example:
 
 ```graphql
 type Person implements Node {
@@ -410,6 +437,10 @@ A `DbClient` classloader must expose at most one generated semantic-nullability 
 coordinates from separate persistence modules from being combined accidentally; applications with
 multiple policies must isolate their clients by classloader.
 
+The name describes the runtime rule—an unexplained null is an error even though the field is
+nullable—but the generated Hibernate mapping and reviewed migration enforce it with a `NOT NULL`
+constraint. This does not change the field's nullability in the GraphQL schema.
+
 #### Relationship Overrides
 
 The `relationships` section replaces the former relationship-only YAML file. Use
@@ -429,11 +460,24 @@ viaductPgPersistence {
 
 | Task | Purpose |
 | --- | --- |
-| `validateViaductPgPersistenceSchema` | Validate db and persistence constraints |
-| `generateViaductPgPersistenceModel` | Generate a dynamic HBM mapping from the assembled schema |
-| `buildViaductEffectiveModel` | Compile the model through Hibernate and generate database overlays |
-| `hibernateSchemaSnapshot` | Write a reviewable Liquibase JSON snapshot |
-| `hibernateSchemaDiff` | Compare the generated model with a PostgreSQL database |
+| `validateViaductPgPersistenceSchema` | Validate the GraphQL schema and persistence policy for compatibility |
+| `generateViaductPgPersistenceModel` | Generate dynamic HBM and persistence metadata from the assembled schema |
+| `buildViaductEffectiveModel` | Compile the HBM through Hibernate and generate PostgreSQL and pg_graphql overlays |
+| `hibernateSchemaSnapshot` | Write `build/schema-diff/hibernate-snapshot.json` for review and tooling |
+| `hibernateSchemaDiff` | Compare the generated database description with PostgreSQL and write review SQL under `build/schema-diff/` |
+
+The tasks perform these steps:
+
+1. Read the persistent types and fields from the assembled GraphQL schema and
+   `persistence.yaml`.
+2. Generate Hibernate mapping metadata. GraphQL/GRT type and field names become Hibernate entity
+   and property names; no Java or Kotlin entity classes are generated.
+3. Ask Hibernate how the mapping corresponds to database tables, columns, and relationships.
+4. Generate the PostgreSQL and pg_graphql SQL files.
+5. When requested, compare that result with the existing database and write SQL for review.
+
+This differs from an earlier design that generated annotated Java classes solely to feed
+Hibernate's metadata compiler. The current implementation supplies dynamic HBM directly.
 
 Generate the effective model:
 
@@ -459,8 +503,8 @@ build/generated/viaduct-effective-model/META-INF/
 
 The generated HBM uses Hibernate's dynamic-map representation: GraphQL/GRT type and field names
 are the Hibernate entity and property names, and no parallel Hibernate POJOs are generated. The
-effective SQL directory is packaged into the application JAR. The effective model and Liquibase
-reference metadata are rebuilt from the assembled schema, generated mapping, classpath, and naming
+generated SQL directory is packaged into the application JAR. Hibernate and Liquibase rebuild the
+database description from the assembled schema, generated mapping, classpath, and naming
 configuration; no metadata descriptor is packaged or passed between tasks.
 
 ## Use pg_graphql as a Db Backend
@@ -483,8 +527,8 @@ for Supabase, that's:
 https://<project>.supabase.co/graphql/v1
 ```
 
-Required headers depend on that fronting layer, not on `pg_graphql` itself. Supabase's PostgREST
-gateway expects both the caller's JWT and its own API key:
+Required headers depend on that fronting layer, not on `pg_graphql` itself. Supabase's API gateway
+normally expects both the caller's JWT and its own API key:
 
 ```http
 Authorization: Bearer <access-token>
@@ -502,7 +546,7 @@ GraphQL metadata:
 
 ```text
 persistence.yaml
-  -> effective persistence model
+  -> persistent types and fields
   -> dynamic HBM not-null="true" mapping
   -> reviewed hibernateSchemaDiff migration
   -> PostgreSQL NOT NULL constraint
@@ -522,15 +566,17 @@ database constraint exists, `pg_graphql` has no semantic non-null policy to disc
 
 For partial GraphQL responses, use `fetchResult` or `fetchJsonResult`. Their `DbResult` preserves
 partial data and each upstream error's message, path, locations, and extensions. The runtime
-restores both data and error paths through the same response-shape transformation, correlates
-semantic nulls with those authored paths, and adds a
+converts both data and error paths from pg_graphql connection fields to Viaduct connection fields,
+correlates semantic nulls with those paths, and adds a
 violation only for an unexplained null. The original `fetch` and `fetchJson` convenience methods
 remain strict for compatibility and throw `UpstreamGraphqlException` when `pg_graphql` returns
 errors. `DbResult` does not itself install errors into Viaduct's field-error channel; resolvers that
 retain partial data must do that at their execution boundary.
 
-The overlay enables row-level security but does not invent authorization policies. Define and
-migrate the PostgreSQL RLS policies required by the application.
+The repeatable overlay enables row-level security but does not invent authorization policies.
+Normal Viaduct access should put `pg_graphql` behind a trusted backend role and enforce application
+authorization with checker executors. If untrusted clients can reach the database GraphQL endpoint,
+the application must also define grants and PostgreSQL RLS policies appropriate to those clients.
 
 Viaduct db selections and pg_graphql use different collection shapes:
 
@@ -571,7 +617,9 @@ val dbClient = DbClient(
 )
 ```
 
-Node resolvers can then hydrate their owned selections from a filtered pg_graphql collection:
+Node resolvers can then load their owned selections from a filtered pg_graphql collection.
+`ownedSelections()` intersects the resolver's output selection set—the fields it can resolve—with
+the current request's selection set:
 
 ```kotlin
 return dbClient.fetchByInternalId(
@@ -737,8 +785,8 @@ hibernate:viaduct:<path-to-descriptor.yaml>
 ```
 
 The path points to a descriptor written by `ViaductHibernateDatabase.reference(configuration)`,
-holding the full `HibernateMetadataConfiguration` — including the semantic persistence model used
-for pg_graphql-aware diffing, when one is available. The driver reads the descriptor, creates an
+holding the full `HibernateMetadataConfiguration` — including the persistent types and fields read
+from the GraphQL schema, when they are available. The driver reads the descriptor, creates an
 isolated classloader from it, applies the configured Hibernate naming strategies and metadata
 customizers, and returns the same metadata used by `buildViaductEffectiveModel`. The Gradle tasks
 write and delete the descriptor automatically.
