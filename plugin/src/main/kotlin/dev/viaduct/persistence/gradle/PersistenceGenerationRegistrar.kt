@@ -2,9 +2,8 @@ package dev.viaduct.persistence.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
-/** Registers schema validation, model generation, and generated source/resource wiring. */
+/** Registers schema validation, dynamic Hibernate mapping generation, and resource wiring. */
 internal class PersistenceGenerationRegistrar(
     private val project: Project,
     private val extension: ViaductPgPersistenceExtension,
@@ -18,6 +17,7 @@ internal class PersistenceGenerationRegistrar(
             ) {
                 it.group = "verification"
                 it.centralSchemaDirectory.set(extension.centralSchemaDirectory)
+                it.persistenceConfigFile.from(extension.persistenceConfigFile)
                 dependOnCentralSchemaAssemblyIfPresent(it)
             }
         val generate =
@@ -27,12 +27,11 @@ internal class PersistenceGenerationRegistrar(
             ) {
                 it.group = "build"
                 it.description =
-                    "Generate plain entities and JPA mappings from the assembled Viaduct schema."
+                    "Generate dynamic Hibernate mappings from the assembled Viaduct schema."
                 dependOnCentralSchemaAssemblyIfPresent(it)
                 it.centralSchemaDirectory.set(extension.centralSchemaDirectory)
                 it.outputDirectory.set(layout.generatedRoot)
-                it.packageName.set(extension.packageName)
-                it.replacementOrmXml.set(extension.replacementOrmXml)
+                it.replacementHbmXml.set(extension.replacementHbmXml)
                 it.associationSchemaName.set(extension.associationSchemaName)
                 it.persistenceConfigFile.from(extension.persistenceConfigFile)
             }
@@ -57,22 +56,11 @@ internal class PersistenceGenerationRegistrar(
         validate: TaskProvider<ValidatePgGraphqlDbsTask>,
         generate: TaskProvider<GenerateHibernateSchemaModelTask>,
     ) {
-        val generatedKotlin =
-            project
-                .files(
-                    layout.generatedRoot.map { it.dir("kotlin") },
-                ).builtBy(generate)
         val generatedResources =
             project
                 .files(
                     layout.generatedRoot.map { it.dir("resources") },
                 ).builtBy(generate)
-        project.extensions
-            .getByType(KotlinJvmProjectExtension::class.java)
-            .sourceSets
-            .getByName("main")
-            .kotlin
-            .srcDir(generatedKotlin)
         layout.mainSourceSet.resources.srcDir(generatedResources)
         project.tasks.named("compileKotlin").configure {
             it.dependsOn(validate, generate)

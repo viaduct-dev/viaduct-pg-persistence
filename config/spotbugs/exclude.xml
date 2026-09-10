@@ -49,4 +49,14 @@
         <Class name="dev.viaduct.persistence.liquibase.pggraphql.PgGraphqlCommentSnapshotGenerator"/>
         <Method name="queryConstraintComment"/>
     </Match>
+    <Match>
+        <Bug pattern="OBL_UNSATISFIED_OBLIGATION"/>
+        <Class name="dev.viaduct.persistence.postgresql.PostgresqlOverlayIntegrationTest"/>
+        <Method name="~execute|foreignKeyCount|constraintComment"/>
+    </Match>
+    <Match>
+        <Bug pattern="OBL_UNSATISFIED_OBLIGATION"/>
+        <Class name="dev.viaduct.persistence.postgresql.GraphqlToPgGraphqlIntegrationTest"/>
+        <Method name="~execute|insertFixture|insertTeam|resolveGraphql"/>
+    </Match>
 </FindBugsFilter>

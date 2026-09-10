@@ -2,13 +2,17 @@ package dev.viaduct.persistence.model
 
 import viaduct.graphql.schema.ViaductSchema
 
-fun validatePgGraphqlDbs(schema: ViaductSchema) {
+fun validatePgGraphqlDbs(
+    schema: ViaductSchema,
+    persistentTypeNames: Set<String>,
+) {
     val objectTypes =
         schema.types.values
             .filterIsInstance<ViaductSchema.Object>()
             .associateBy { it.name }
 
-    for (root in objectTypes.values.filter { it.hasAppliedDirective("db") }) {
+    for (rootName in persistentTypeNames) {
+        val root = requireNotNull(objectTypes[rootName])
         validatePgGraphqlDb(
             type = root,
             objectTypes = objectTypes,
@@ -30,8 +34,8 @@ private fun validatePgGraphqlDb(
         if (field.hasAppliedDirective("resolver") && !isResolverBackedConnection(field)) {
             val fieldPath = (path + field.name).joinToString(".")
             error(
-                "@db type '${path.first()}' transitively reaches '$fieldPath', which is " +
-                    "annotated with @resolver. @db fields must be resolvable by pg_graphql.",
+                "Persistent Node '${path.first()}' transitively reaches '$fieldPath', which is " +
+                    "annotated with @resolver. Persistent fields must be resolvable by pg_graphql.",
             )
         }
         val target = field.type.baseTypeDef as? ViaductSchema.Object

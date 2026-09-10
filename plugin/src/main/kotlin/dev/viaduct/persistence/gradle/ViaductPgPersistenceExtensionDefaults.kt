@@ -17,7 +17,7 @@ internal object ViaductPgPersistenceExtensionDefaults {
                 // monolithic single-project consumers). A Viaduct *module* project with no
                 // sibling application (e.g. a dedicated persistence tenant) never has that task,
                 // so this instead falls back to the module's own local schema source directory —
-                // fine because such a module owns its entire `@db` schema and needs no
+                // fine because such a module owns its entire persistent Node schema and needs no
                 // cross-module central assembly to generate its Hibernate model.
                 centralSchemaDirectory.convention(
                     project.provider {
@@ -29,9 +29,6 @@ internal object ViaductPgPersistenceExtensionDefaults {
                             project.layout.projectDirectory.dir("src/main/viaduct/schema")
                         }
                     },
-                )
-                packageName.convention(
-                    project.provider { "${project.group}.persistence.generated" },
                 )
                 implicitNamingStrategyClassName.convention(
                     ViaductImplicitNamingStrategy::class.java.name,

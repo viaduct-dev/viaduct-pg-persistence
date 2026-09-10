@@ -22,9 +22,12 @@ internal class EffectiveModelRegistrar(
                 it.dependsOn("classes")
                 it.centralSchemaDirectory.set(extension.centralSchemaDirectory)
                 it.persistenceConfigFile.from(extension.persistenceConfigFile)
-                it.mappingFile.set(layout.generatedRoot.map { it.file("resources/META-INF/orm.xml") })
+                it.mappingFile.set(
+                    layout.generatedRoot.map { root ->
+                        root.file("resources/META-INF/viaduct-persistence.hbm.xml")
+                    },
+                )
                 it.modelClasspath.from(layout.mainSourceSet.runtimeClasspath)
-                it.packageName.set(extension.packageName)
                 it.implicitNamingStrategyClassName.set(extension.implicitNamingStrategyClassName)
                 it.physicalNamingStrategyClassName.set(extension.physicalNamingStrategyClassName)
                 it.metadataCustomizerClassNames.set(extension.metadataCustomizerClassNames)

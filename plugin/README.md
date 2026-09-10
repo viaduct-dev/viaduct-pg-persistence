@@ -13,10 +13,9 @@ plugins {
     id("dev.viaduct.pg-persistence") version "0.1.0-SNAPSHOT"
 }
 
-viaductPgPersistence {
-    packageName.set("com.example.persistence.generated")
-}
 ```
+
+The plugin generates dynamic HBM metadata and PostgreSQL overlays, not entity source code.
 
 Run:
 

@@ -17,6 +17,29 @@ class PersistenceSchemaModelLoaderTest {
         val model = PersistenceSchemaModelLoader.build(fixture.schemaDirectory, fixture.config)
 
         assertEquals(listOf("Group"), model.entities.map { it.graphqlName })
+        assertTrue(model.entities.single().generatedGlobalId)
+    }
+
+    @Test
+    fun `denylist is the only exception to Node persistence validation`() {
+        val fixture = fixture(auditField = "external: String @resolver")
+        fixture.config.writeText("denyList:\n  types: [AuditEvent]\n")
+
+        val model = PersistenceSchemaModelLoader.build(fixture.schemaDirectory, fixture.config)
+
+        assertEquals(listOf("Group"), model.entities.map { it.graphqlName })
+    }
+
+    @Test
+    fun `validates every Node when YAML does not deny it`() {
+        val fixture = fixture(auditField = "external: String @resolver")
+
+        val failure =
+            assertFailsWith<IllegalStateException> {
+                PersistenceSchemaModelLoader.build(fixture.schemaDirectory, null)
+            }
+
+        assertTrue(failure.message!!.contains("Persistent Node 'AuditEvent'"))
     }
 
     @Test
@@ -31,7 +54,7 @@ class PersistenceSchemaModelLoaderTest {
     }
 
     @Test
-    fun `semantic non-null YAML reaches generated Kotlin and ORM mappings`() {
+    fun `semantic non-null YAML reaches dynamic Hibernate mappings`() {
         val fixture = fixture()
         fixture.config.writeText("semanticNotNull:\n  fields: [Group.name]\n")
         val output = fixture.schemaDirectory.parentFile.resolve("generated")
@@ -39,14 +62,12 @@ class PersistenceSchemaModelLoaderTest {
         HibernateSchemaModelWriter().write(
             model = PersistenceSchemaModelLoader.build(fixture.schemaDirectory, fixture.config),
             outputDirectory = output,
-            packageName = "test.generated",
         )
 
-        val entity = output.resolve("kotlin/test/generated/GroupEntity.kt").readText()
-        assertTrue(entity.contains("open var name: String = \"\""))
-        val mapping = output.resolve("resources/META-INF/orm.xml").readText()
-        assertTrue(mapping.contains("<basic name=\"name\" optional=\"false\">"))
-        assertTrue(mapping.contains("<column name=\"name\" nullable=\"false\"/>"))
+        assertFalse(output.resolve("kotlin").exists())
+        val mapping = output.resolve("resources/META-INF/viaduct-persistence.hbm.xml").readText()
+        assertTrue(mapping.contains("<property name=\"name\" not-null=\"true\" type=\"string\">"))
+        assertTrue(mapping.contains("<column name=\"name\" not-null=\"true\"/>"))
         assertEquals(
             "Group.name",
             output.resolve("resources/META-INF/viaduct-persistence-semantic-not-null.txt").readText().trim(),
@@ -80,7 +101,10 @@ class PersistenceSchemaModelLoaderTest {
         assertTrue(failure.message!!.contains("AuditEvent"))
     }
 
-    private fun fixture(groupField: String = "name: String"): Fixture {
+    private fun fixture(
+        groupField: String = "name: String",
+        auditField: String = "",
+    ): Fixture {
         val root = Files.createTempDirectory("persistence-policy").toFile()
         val schemaDirectory =
             root.resolve("schema").apply {
@@ -88,6 +112,7 @@ class PersistenceSchemaModelLoaderTest {
             }
         schemaDirectory.resolve("Model.graphqls").writeText(
             """
+            directive @resolver on FIELD_DEFINITION
             interface Node { id: ID! }
 
             type Group implements Node {
@@ -97,6 +122,7 @@ class PersistenceSchemaModelLoaderTest {
 
             type AuditEvent implements Node {
               id: ID
+              $auditField
             }
             """.trimIndent(),
         )

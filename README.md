@@ -48,7 +48,7 @@ dependencyResolutionManagement {
 
 ### 2. Apply the plugin and runtime
 
-Add the persistence plugin to the Viaduct application and choose a package for generated code:
+Add the persistence plugin to the Viaduct application:
 
 ```kotlin
 // build.gradle.kts
@@ -62,9 +62,6 @@ dependencies {
     implementation("dev.viaduct.persistence:runtime:0.1.0-SNAPSHOT")
 }
 
-viaductPgPersistence {
-    packageName.set("com.example.persistence.generated")
-}
 ```
 
 ### 3. Define the data model
@@ -300,8 +297,8 @@ Supported scalar mappings are:
 | One-dimensional scalar list | PostgreSQL array |
 
 Resolver-backed fields that do not form relationships between included persistent types are not
-persisted. A type reachable from a `@db` root cannot contain a transitively reachable
-`@resolver` field because pg_graphql must resolve the complete db.
+persisted. A type reachable from a persistent `Node` cannot contain a transitively reachable
+`@resolver` field because pg_graphql must resolve the complete stored graph.
 
 ### Excluding Types
 
@@ -317,7 +314,7 @@ notable file. These cases fail generation instead of producing a partial databas
 
 `.notable.graphqls` works, but is not the recommended way to keep externally backed types out of
 the database. Standard practice is a second Viaduct tenant module that never applies this plugin
-and has no `@db` schema of its own, alongside the tenant that owns persistence. This keeps
+and does not apply this persistence plugin, alongside the tenant that owns persistence. This keeps
 externally backed types on equal footing with database-backed ones — same module boundary,
 Kotlin dependency rules, and resolver ownership — rather than relying on a filename convention to
 exclude them from a database they were never going to belong to.
@@ -382,8 +379,8 @@ semanticNotNull:
     - Person.displayName
 ```
 
-`Person.displayName` remains nullable in the public GraphQL schema, but the generated Kotlin
-property, Hibernate mapping, and PostgreSQL column are non-null. The effective rule is:
+`Person.displayName` remains nullable in the public GraphQL schema, but the dynamic Hibernate
+mapping and PostgreSQL column are non-null. The effective rule is:
 
 ```text
 non-null in persistence = GraphQL SDL non-null
@@ -433,7 +430,7 @@ viaductPgPersistence {
 | Task | Purpose |
 | --- | --- |
 | `validateViaductPgPersistenceSchema` | Validate db and persistence constraints |
-| `generateViaductPgPersistenceModel` | Generate plain entities and `orm.xml` from the assembled schema |
+| `generateViaductPgPersistenceModel` | Generate a dynamic HBM mapping from the assembled schema |
 | `buildViaductEffectiveModel` | Compile the model through Hibernate and generate database overlays |
 | `hibernateSchemaSnapshot` | Write a reviewable Liquibase JSON snapshot |
 | `hibernateSchemaDiff` | Compare the generated model with a PostgreSQL database |
@@ -448,8 +445,7 @@ The main generated outputs are:
 
 ```text
 build/generated/viaduct-persistence/
-  kotlin/...
-  resources/META-INF/orm.xml
+  resources/META-INF/viaduct-persistence.hbm.xml
   resources/META-INF/persistence.xml
 
 build/generated/viaduct-effective-model/META-INF/
@@ -461,9 +457,11 @@ build/generated/viaduct-effective-model/META-INF/
   postgresql-repeatable.sql
 ```
 
-The effective SQL directory is packaged into the application JAR. The effective model and
-Liquibase reference metadata are rebuilt from the assembled schema, generated mapping, classpath,
-and naming configuration; no metadata descriptor is packaged or passed between tasks.
+The generated HBM uses Hibernate's dynamic-map representation: GraphQL/GRT type and field names
+are the Hibernate entity and property names, and no parallel Hibernate POJOs are generated. The
+effective SQL directory is packaged into the application JAR. The effective model and Liquibase
+reference metadata are rebuilt from the assembled schema, generated mapping, classpath, and naming
+configuration; no metadata descriptor is packaged or passed between tasks.
 
 ## Use pg_graphql as a Db Backend
 
@@ -505,7 +503,7 @@ GraphQL metadata:
 ```text
 persistence.yaml
   -> effective persistence model
-  -> generated Kotlin and Hibernate nullable="false" mapping
+  -> dynamic HBM not-null="true" mapping
   -> reviewed hibernateSchemaDiff migration
   -> PostgreSQL NOT NULL constraint
   -> pg_graphql schema introspection
@@ -612,11 +610,11 @@ upstream error handling, response-shape restoration, Viaduct GRT mapping, and no
 hydration. The application still owns the `HttpClient` lifecycle, endpoint, and authentication
 policy.
 
-Every `@db` type is validated during generation. A transitively reachable `@resolver` field
-is rejected because pg_graphql cannot resolve that field from the database. Types or fields
-backed by external services should remain outside that db — standard practice is a second,
-database-free tenant module, with `.notable.graphqls` as the fallback (see
-[Excluding Types](#excluding-types)).
+Every persistent `Node` not excluded by YAML is validated during generation. A transitively
+reachable `@resolver` field is rejected because pg_graphql cannot resolve that field from the
+database. Types or fields backed by external services should remain outside that persistence
+module — prefer a second, database-free tenant module, with `.notable.graphqls` as the fallback
+(see [Excluding Types](#excluding-types)).
 
 ## Create or Update a Database
 
@@ -671,10 +669,12 @@ and database-owned constraints remain explicit manual migration work.
 The combined `pg-graphql.sql` overlay:
 
 - Creates self-contained generated global ID columns for supported Viaduct `Node` db types.
+- Creates the physical foreign keys that Hibernate's dynamic-map HBM schema model omits, including
+  target-side, `@idOf`, join-table, and edge-field relationships.
 - Enables row-level security on generated entity tables.
 - Preserves authored GraphQL type and relationship names with pg_graphql comments.
 - Enforces non-null scalar-array elements.
-- Names the ordinary foreign-key relationships used to read real association tables.
+- Names GraphQL-visible foreign-key relationships without exposing `@idOf` implementation fields.
 
 ## Customize Hibernate
 
@@ -720,11 +720,11 @@ For complete control, replace the generated mapping:
 
 ```kotlin
 viaductPgPersistence {
-    replacementOrmXml.set(layout.projectDirectory.file("config/orm.xml"))
+    replacementHbmXml.set(layout.projectDirectory.file("config/persistence.hbm.xml"))
 }
 ```
 
-`replacementOrmXml` is a complete replacement, not a merge. The effective-model task validates
+`replacementHbmXml` is a complete replacement, not a merge. The effective-model task validates
 that it still represents the GraphQL fields, relationship targets, and nullability. Complete
 replacement is supported but is not the recommended default.
 
@@ -786,23 +786,23 @@ accessor.close()
 
 `HibernateMetadataConfiguration.default()` works as-is once the plugin has generated a mapping
 file: it uses the plugin's own generated location
-(`build/generated/viaduct-persistence/resources/META-INF/orm.xml`), the current JVM's classpath,
-and the entity classes declared in that mapping file
-(`HibernateMetadataConfiguration.managedClassNamesIn`).
+(`build/generated/viaduct-persistence/resources/META-INF/viaduct-persistence.hbm.xml`), the current
+JVM's classpath, and the dynamic entity names declared in that mapping file
+(`HibernateMetadataConfiguration.managedEntityNamesIn`).
 
-`mappingFile`, `classpath`, and `managedClassNames` have no default on the primary constructor
+`mappingFile`, `classpath`, and `managedEntityNames` have no default on the primary constructor
 itself, on purpose: a process building configurations for more than one mapping file — a test
 generating several scenario-specific models is the common case — must not have a missing override
 silently fall back to an unrelated mapping file that happens to exist at the conventional location.
 Use the primary constructor with an explicit `mappingFile` whenever more than one is in play, or
-the entity classes aren't already on the running JVM's classpath:
+the mapping entities aren't already available to the running process:
 
 ```kotlin
-val mappingFile = File("some/other/orm.xml")
+val mappingFile = File("some/other/persistence.hbm.xml")
 val configuration = HibernateMetadataConfiguration(
     mappingFile = mappingFile,
     classpath = listOf(File("build/classes/kotlin/main")),
-    managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
+    managedEntityNames = HibernateMetadataConfiguration.managedEntityNamesIn(mappingFile),
 )
 ```
 

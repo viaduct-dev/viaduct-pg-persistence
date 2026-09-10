@@ -16,7 +16,6 @@ internal object PersistenceSchemaModelLoader {
     ): PersistenceModel {
         val schemaFiles = schemaFiles(centralSchemaDirectory)
         val schema = ViaductSchemaFactory.fromTypeDefinitionRegistry(schemaFiles)
-        validatePgGraphqlDbs(schema)
         val config = PersistenceConfig.load(persistenceConfigFile)
         val discoveredTypeNames = discoverPersistentTypeNames(schemaFiles, schema)
         val invalidDeniedTypes = config.deniedTypeNames - discoveredTypeNames
@@ -25,6 +24,7 @@ internal object PersistenceSchemaModelLoader {
                 "persistent GraphQL objects: ${invalidDeniedTypes.sorted().joinToString()}"
         }
         val persistentTypeNames = discoveredTypeNames - config.deniedTypeNames
+        validatePgGraphqlDbs(schema, persistentTypeNames)
         return PersistenceModelBuilder().build(
             schema = schema,
             selectedTypeNames = persistentTypeNames,

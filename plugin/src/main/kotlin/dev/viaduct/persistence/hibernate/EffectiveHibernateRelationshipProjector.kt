@@ -58,7 +58,6 @@ internal class EffectiveHibernateRelationshipProjector(
         // single-object accessor the same would collide with that raw column in the generated
         // schema, so this relationship isn't given a `foreign_name` override; pg_graphql's
         // unreferenced default name is unused.
-        if (attribute.idOfDirected) return null
         val property = binding.requiredProperty(entity.graphqlName, attribute.name)
         val targetBinding = context.bindingFor(attribute.targetTypeName)
         return EffectiveHibernateRelationship(
@@ -67,9 +66,12 @@ internal class EffectiveHibernateRelationshipProjector(
             schemaName = property.value.table.schemaOrPublic(),
             tableName = property.value.table.name,
             columnName = property.singleColumnName(),
-            graphqlNameKind = GraphqlNameKind.FOREIGN,
+            graphqlNameKind =
+                if (attribute.idOfDirected) GraphqlNameKind.NONE else GraphqlNameKind.FOREIGN,
             targetSchemaName = targetBinding.table.schemaOrPublic(),
             targetTableName = targetBinding.table.name,
+            targetIdColumnName =
+                targetBinding.identifier.singleColumnName(context.className(attribute.targetTypeName)),
         )
     }
 
@@ -81,17 +83,7 @@ internal class EffectiveHibernateRelationshipProjector(
     ): EffectiveHibernateRelationship? {
         val collection = context.collectionFor(entity.graphqlName, attribute.name)
         if (attribute.storage == PersistenceToManyStorage.TARGET_FOREIGN_KEY) {
-            return EffectiveHibernateRelationship(
-                ownerTypeName = entity.graphqlName,
-                fieldName = attribute.name,
-                schemaName = collection.collectionTable.schemaOrPublic(),
-                tableName = collection.collectionTable.name,
-                columnName =
-                    collection.key.singleColumnName(
-                        "${context.className(entity.graphqlName)}.${attribute.name}",
-                    ),
-                graphqlNameKind = GraphqlNameKind.LOCAL,
-            )
+            return projectTargetForeignKey(entity, attribute, binding, collection)
         }
         val targetBinding = context.bindingFor(attribute.targetTypeName)
         val element =
@@ -135,6 +127,27 @@ internal class EffectiveHibernateRelationshipProjector(
             )
         return null
     }
+
+    private fun projectTargetForeignKey(
+        entity: PersistenceEntity,
+        attribute: PersistenceToManyAttribute,
+        binding: PersistentClass,
+        collection: org.hibernate.mapping.Collection,
+    ): EffectiveHibernateRelationship =
+        EffectiveHibernateRelationship(
+            ownerTypeName = entity.graphqlName,
+            fieldName = attribute.name,
+            schemaName = collection.collectionTable.schemaOrPublic(),
+            tableName = collection.collectionTable.name,
+            columnName =
+                collection.key.singleColumnName(
+                    "${context.className(entity.graphqlName)}.${attribute.name}",
+                ),
+            graphqlNameKind = GraphqlNameKind.LOCAL,
+            targetSchemaName = binding.table.schemaOrPublic(),
+            targetTableName = binding.table.name,
+            targetIdColumnName = binding.identifier.singleColumnName(context.className(entity.graphqlName)),
+        )
 
     private fun projectEdgeFields(
         entity: PersistenceEntity,

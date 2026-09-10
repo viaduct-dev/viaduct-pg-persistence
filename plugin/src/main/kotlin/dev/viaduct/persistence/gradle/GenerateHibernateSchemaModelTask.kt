@@ -21,12 +21,9 @@ abstract class GenerateHibernateSchemaModelTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
-    @get:Input
-    abstract val packageName: Property<String>
-
     @get:InputFile
     @get:Optional
-    abstract val replacementOrmXml: RegularFileProperty
+    abstract val replacementHbmXml: RegularFileProperty
 
     @get:Input
     abstract val associationSchemaName: Property<String>
@@ -50,8 +47,7 @@ abstract class GenerateHibernateSchemaModelTask : DefaultTask() {
         HibernateSchemaModelWriter().write(
             model = model,
             outputDirectory = outputDirectory.get().asFile,
-            packageName = packageName.get(),
-            replacementOrmXml = replacementOrmXml.orNull?.asFile,
+            replacementHbmXml = replacementHbmXml.orNull?.asFile,
             associationSchemaName = associationSchemaName.get(),
         )
         logger.lifecycle(

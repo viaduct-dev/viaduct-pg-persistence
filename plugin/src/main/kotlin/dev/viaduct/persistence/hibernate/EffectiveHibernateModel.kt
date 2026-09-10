@@ -54,6 +54,7 @@ data class EffectiveHibernateRelationship(
     /** Populated for [GraphqlNameKind.FOREIGN]: the table the foreign key points at. */
     val targetSchemaName: String? = null,
     val targetTableName: String? = null,
+    val targetIdColumnName: String? = null,
 )
 
 data class EffectiveHibernateArray(
@@ -139,4 +140,5 @@ data class EffectiveHibernateEdgeCollection(
 enum class GraphqlNameKind {
     FOREIGN,
     LOCAL,
+    NONE,
 }

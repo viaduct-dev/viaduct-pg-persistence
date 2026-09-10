@@ -59,8 +59,7 @@ class PersistenceModelBuilder {
                 ?: error("Persistence type '$typeName' is not a GraphQL object")
         }
 
-    private fun generatesGlobalId(type: ViaductSchema.Object): Boolean =
-        type.supers.any { it.name == "Node" } && type.hasAppliedDirective("db")
+    private fun generatesGlobalId(type: ViaductSchema.Object): Boolean = type.supers.any { it.name == "Node" }
 
     private fun validateDeniedRelationships(
         schema: ViaductSchema,

@@ -1,12 +1,14 @@
 package dev.viaduct.persistence.postgresql
 
-import dev.viaduct.persistence.hibernate.EffectiveHibernateEntity
-
 /** Renders the id-column migration for generated global identifiers. */
-internal object GlobalIdMigrationRenderer {
-    fun render(entity: EffectiveHibernateEntity): String {
-        val internalIdColumn = requireNotNull(entity.internalIdColumnName)
-        val globalIdColumn = requireNotNull(entity.globalIdColumnName)
+internal object GlobalIdMigrationRenderer :
+    MigrationRenderer<PostgresqlMigrationOperation.AddGlobalId> {
+    override val operationType = PostgresqlMigrationOperation.AddGlobalId::class
+
+    override fun render(operation: PostgresqlMigrationOperation.AddGlobalId): String {
+        val entity = operation.globalId
+        val internalIdColumn = entity.internalIdColumnName
+        val globalIdColumn = entity.globalIdColumnName
         val schemaLiteral = quoteLiteral(entity.schemaName)
         val tableLiteral = quoteLiteral(entity.tableName)
         val columnLiteral = quoteLiteral(globalIdColumn)
@@ -22,7 +24,7 @@ internal object GlobalIdMigrationRenderer {
                    AND column_name = $columnLiteral
                    AND is_generated = 'NEVER'
               ) THEN
-                ALTER TABLE ${entity.qualifiedTableName()}
+                ALTER TABLE ${qualifiedTableName(entity.schemaName, entity.tableName)}
                   DROP COLUMN ${quoteIdentifier(globalIdColumn)};
               END IF;
               IF NOT EXISTS (
@@ -32,7 +34,7 @@ internal object GlobalIdMigrationRenderer {
                    AND table_name = $tableLiteral
                    AND column_name = $columnLiteral
               ) THEN
-                ALTER TABLE ${entity.qualifiedTableName()}
+                ALTER TABLE ${qualifiedTableName(entity.schemaName, entity.tableName)}
                   ADD COLUMN ${quoteIdentifier(globalIdColumn)} TEXT GENERATED ALWAYS AS (
                     replace(
                       encode(

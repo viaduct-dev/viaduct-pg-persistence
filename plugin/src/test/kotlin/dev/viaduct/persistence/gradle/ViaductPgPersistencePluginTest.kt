@@ -34,9 +34,10 @@ class ViaductPgPersistencePluginTest {
             assertEquals(TaskOutcome.SUCCESS, third.task(":generateViaductPgPersistenceModel")?.outcome)
             val mapping =
                 projectDirectory
-                    .resolve("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
+                    .resolve("build/generated/viaduct-persistence/resources/META-INF/viaduct-persistence.hbm.xml")
                     .readText()
-            assertContains(mapping, "<column name=\"name\" nullable=\"false\"/>")
+            assertContains(mapping, "<column name=\"name\" not-null=\"true\"/>")
+            assertFalse(projectDirectory.resolve("build/generated/viaduct-persistence/kotlin").exists())
         } finally {
             projectDirectory.deleteRecursively()
         }
@@ -75,9 +76,10 @@ class ViaductPgPersistencePluginTest {
             )
             val mapping =
                 projectDirectory
-                    .resolve("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
+                    .resolve("build/generated/viaduct-persistence/resources/META-INF/viaduct-persistence.hbm.xml")
                     .readText()
-            assertContains(mapping, "<table name=\"Group\"/>")
+            assertContains(mapping, "entity-name=\"Group\"")
+            assertContains(mapping, "table=\"Group\"")
         } finally {
             projectDirectory.deleteRecursively()
         }
@@ -99,7 +101,7 @@ class ViaductPgPersistencePluginTest {
             assertContains(pgGraphql, "invitedBy")
             assertContains(postgresql, "ADD COLUMN \"role\" varchar(255) NOT NULL")
             assertContains(postgresql, "FOREIGN KEY (\"invited_by_id\")")
-            assertContains(postgresql, "REFERENCES \"public\".\"persons\" (\"id\")")
+            assertContains(postgresql, "REFERENCES \"public\".\"persons\" (\"_uuid_id\")")
             assertFalse(pgGraphql.contains("CREATE OR REPLACE VIEW"))
             assertFalse(pgGraphql.contains("CREATE OR REPLACE FUNCTION"))
             assertFalse(output.resolve("viaduct-effective-model.tsv").exists())
@@ -122,11 +124,18 @@ class ViaductPgPersistencePluginTest {
             )
             val mapping =
                 projectDirectory
-                    .resolve("build/generated/viaduct-persistence/resources/META-INF/orm.xml")
+                    .resolve("build/generated/viaduct-persistence/resources/META-INF/viaduct-persistence.hbm.xml")
                     .readText()
-            assertContains(mapping, "<many-to-one fetch=\"LAZY\" name=\"groupId\"")
-            assertContains(mapping, "<join-column column-definition=\"uuid\" name=\"groupId\"")
+            assertContains(mapping, "<many-to-one entity-name=\"Group\"")
+            assertContains(mapping, "<column name=\"groupId\"")
             assertFalse(mapping.contains("groupIdId"))
+            val sql =
+                projectDirectory
+                    .resolve("build/generated/viaduct-effective-model/META-INF/pg-graphql.sql")
+                    .readText()
+            assertContains(sql, "FOREIGN KEY (\"group_id\")")
+            assertContains(sql, "REFERENCES \"public\".\"groups\"")
+            assertFalse(sql.contains("\"foreign_name\": \"groupId\""))
         } finally {
             projectDirectory.deleteRecursively()
         }
@@ -178,10 +187,11 @@ class ViaductPgPersistencePluginTest {
             directory
                 .resolve(
                     "build/generated/viaduct-persistence/" +
-                        "resources/META-INF/orm.xml",
+                        "resources/META-INF/viaduct-persistence.hbm.xml",
                 ).readText()
-        assertContains(mapping, "<table name=\"Group\"/>")
-        assertContains(mapping, "name=\"groupId\"")
+        assertContains(mapping, "entity-name=\"Group\"")
+        assertContains(mapping, "table=\"Group\"")
+        assertContains(mapping, "column=\"groupId\"")
         val generatedMetaInf =
             directory.resolve("build/generated/viaduct-persistence/resources/META-INF")
         assertTrue(generatedMetaInf.listFiles().orEmpty().none { it.name.startsWith("pg-graphql-translation-schema") })
@@ -218,7 +228,6 @@ class ViaductPgPersistencePluginTest {
 
         viaductPgPersistence {
             centralSchemaDirectory.set(file("schema"))
-            packageName.set("synthetic.generated")
         }
         """.trimIndent()
 
@@ -235,9 +244,6 @@ class ViaductPgPersistencePluginTest {
             id("dev.viaduct.pg-persistence")
         }
 
-        viaductPgPersistence {
-            packageName.set("synthetic.generated")
-        }
         """.trimIndent()
 
     private fun resourceBuildScript(): String =
@@ -251,14 +257,15 @@ class ViaductPgPersistencePluginTest {
 
         viaductPgPersistence {
             centralSchemaDirectory.set(file("schema"))
-            packageName.set("synthetic.generated")
         }
 
         val mainResources = sourceSets.main.get().resources.sourceDirectories
         tasks.register("inspectGeneratedResources") {
             inputs.files(mainResources)
             doLast {
-                check(mainResources.files.any { it.resolve("META-INF/orm.xml").isFile })
+                check(mainResources.files.any {
+                    it.resolve("META-INF/viaduct-persistence.hbm.xml").isFile
+                })
             }
         }
         """.trimIndent()

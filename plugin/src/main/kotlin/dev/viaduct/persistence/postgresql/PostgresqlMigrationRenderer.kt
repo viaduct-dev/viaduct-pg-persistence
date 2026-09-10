@@ -2,22 +2,24 @@ package dev.viaduct.persistence.postgresql
 
 import dev.viaduct.persistence.hibernate.EffectiveHibernateModel
 
-/** Combines id-column and scalar-array migration statements. */
+/** Renders an ordered migration plan by dispatching each operation to its registered renderer. */
 internal object PostgresqlMigrationRenderer {
-    fun render(model: EffectiveHibernateModel): String =
+    private val rendererRegistry =
+        MigrationRendererRegistry.create(
+            listOf(
+                EdgeFieldMigrationRenderer,
+                ForeignKeyMigrationRenderer,
+                GlobalIdMigrationRenderer,
+                ArrayConstraintMigrationRenderer,
+            ),
+        )
+
+    fun render(model: EffectiveHibernateModel): String = render(EffectiveModelToMigrationPlanMapper.map(model))
+
+    internal fun render(plan: PostgresqlMigrationPlan): String =
         buildString {
-            model.entities.filter { it.generatedGlobalId }.forEach {
-                appendLine(GlobalIdMigrationRenderer.render(it))
-            }
-            model.arrays.filterNot { it.elementNullable }.forEach {
-                appendLine(ArrayConstraintMigrationRenderer.render(it))
-            }
-            model.computedRelationships.forEach { relationship ->
-                relationship.edgeFields.forEach { field ->
-                    EdgeFieldMigrationRenderer.render(relationship, field).takeIf(String::isNotEmpty)?.let {
-                        appendLine(it)
-                    }
-                }
+            plan.operations.forEach { operation ->
+                appendLine(rendererRegistry.render(operation))
             }
         }
 }

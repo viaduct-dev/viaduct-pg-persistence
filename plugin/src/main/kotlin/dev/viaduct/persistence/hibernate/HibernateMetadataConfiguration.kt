@@ -6,7 +6,7 @@ import java.io.File
 /**
  * The in-memory inputs used to build the Hibernate metadata for a persistence task.
  *
- * [mappingFile], [classpath], and [managedClassNames] have no default here on purpose: a process
+ * [mappingFile], [classpath], and [managedEntityNames] have no default here on purpose: a process
  * that builds configurations for more than one mapping file (tests generating several
  * scenario-specific models are the common case) must not have a missing override silently fall
  * back to an unrelated file that happens to exist. Use [default] for the common single-mapping-
@@ -17,7 +17,7 @@ import java.io.File
 class HibernateMetadataConfiguration(
     val mappingFile: File,
     classpath: List<File>,
-    managedClassNames: List<String>,
+    managedEntityNames: List<String>,
     val implicitNamingStrategyClassName: String = ViaductImplicitNamingStrategy::class.java.name,
     val physicalNamingStrategyClassName: String = ViaductPhysicalNamingStrategy::class.java.name,
     metadataCustomizerClassNames: List<String> = emptyList(),
@@ -25,11 +25,9 @@ class HibernateMetadataConfiguration(
     hibernateSettings: Map<String, String> = defaultSettings(),
     /** The semantic model this configuration was derived from, if known. */
     val semanticModel: PersistenceModel? = null,
-    /** The generated-entity package name this configuration was derived from, if known. */
-    val packageName: String? = null,
 ) {
     val classpath: List<File> = java.util.List.copyOf(classpath)
-    val managedClassNames: List<String> = java.util.List.copyOf(managedClassNames)
+    val managedEntityNames: List<String> = java.util.List.copyOf(managedEntityNames)
     val metadataCustomizerClassNames: List<String> =
         java.util.List.copyOf(metadataCustomizerClassNames)
     val hibernateSettings: Map<String, String> =
@@ -39,8 +37,8 @@ class HibernateMetadataConfiguration(
         require(mappingFile.isFile) {
             "Hibernate mapping file does not exist: ${mappingFile.absolutePath}"
         }
-        require(managedClassNames.isNotEmpty()) {
-            "Hibernate metadata configuration must contain at least one managed class"
+        require(managedEntityNames.isNotEmpty()) {
+            "Hibernate metadata configuration must contain at least one managed entity"
         }
     }
 
@@ -48,7 +46,8 @@ class HibernateMetadataConfiguration(
         const val DEFAULT_DIALECT = "org.hibernate.dialect.PostgreSQLDialect"
 
         /** The mapping file location the plugin's own Gradle tasks generate. */
-        private const val DEFAULT_MAPPING_FILE_PATH = "build/generated/viaduct-persistence/resources/META-INF/orm.xml"
+        private const val DEFAULT_MAPPING_FILE_PATH =
+            "build/generated/viaduct-persistence/resources/META-INF/viaduct-persistence.hbm.xml"
 
         fun defaultSettings(): Map<String, String> =
             mapOf(
@@ -68,15 +67,15 @@ class HibernateMetadataConfiguration(
                 .filter(File::exists)
 
         /**
-         * Reads the managed class names out of an already-generated Hibernate `orm.xml` mapping
-         * file, for callers building a configuration around a mapping file rather than a live
+         * Reads the managed entity names out of an already-generated native HBM mapping file,
+         * for callers building a configuration around a mapping file rather than a live
          * [PersistenceModel].
          */
-        fun managedClassNamesIn(mappingFile: File): List<String> {
+        fun managedEntityNamesIn(mappingFile: File): List<String> {
             require(mappingFile.isFile) {
                 "Hibernate mapping file does not exist: ${mappingFile.absolutePath}"
             }
-            return Regex("""class="([^"]+)"""")
+            return Regex("""entity-name="([^"]+)"""")
                 .findAll(mappingFile.readText())
                 .map { it.groupValues[1] }
                 .distinct()
@@ -101,20 +100,18 @@ class HibernateMetadataConfiguration(
             dialectClassName: String = DEFAULT_DIALECT,
             hibernateSettings: Map<String, String> = defaultSettings(),
             semanticModel: PersistenceModel? = null,
-            packageName: String? = null,
         ): HibernateMetadataConfiguration {
             val mappingFile = defaultMappingFile()
             return HibernateMetadataConfiguration(
                 mappingFile = mappingFile,
                 classpath = defaultClasspath(),
-                managedClassNames = managedClassNamesIn(mappingFile),
+                managedEntityNames = managedEntityNamesIn(mappingFile),
                 implicitNamingStrategyClassName = implicitNamingStrategyClassName,
                 physicalNamingStrategyClassName = physicalNamingStrategyClassName,
                 metadataCustomizerClassNames = metadataCustomizerClassNames,
                 dialectClassName = dialectClassName,
                 hibernateSettings = hibernateSettings,
                 semanticModel = semanticModel,
-                packageName = packageName,
             )
         }
     }

@@ -21,7 +21,7 @@ class HibernateMetadataConfigurationDescriptorTest {
             HibernateMetadataConfiguration(
                 mappingFile = mappingFile,
                 classpath = listOf(File("build/classes/kotlin/main")),
-                managedClassNames = listOf("example.generated.Group"),
+                managedEntityNames = listOf("Group"),
                 metadataCustomizerClassNames = listOf("example.CustomMetadataCustomizer"),
                 dialectClassName = "org.hibernate.dialect.H2Dialect",
                 hibernateSettings = mapOf("hibernate.show_sql" to "true"),
@@ -34,14 +34,13 @@ class HibernateMetadataConfigurationDescriptorTest {
             configuration.classpath.map(File::getAbsolutePath),
             roundTripped.classpath.map(File::getAbsolutePath),
         )
-        assertEquals(configuration.managedClassNames, roundTripped.managedClassNames)
+        assertEquals(configuration.managedEntityNames, roundTripped.managedEntityNames)
         assertEquals(configuration.implicitNamingStrategyClassName, roundTripped.implicitNamingStrategyClassName)
         assertEquals(configuration.physicalNamingStrategyClassName, roundTripped.physicalNamingStrategyClassName)
         assertEquals(configuration.metadataCustomizerClassNames, roundTripped.metadataCustomizerClassNames)
         assertEquals(configuration.dialectClassName, roundTripped.dialectClassName)
         assertEquals(configuration.hibernateSettings, roundTripped.hibernateSettings)
         assertNull(roundTripped.semanticModel)
-        assertNull(roundTripped.packageName)
     }
 
     @Test
@@ -51,15 +50,13 @@ class HibernateMetadataConfigurationDescriptorTest {
             HibernateMetadataConfiguration(
                 mappingFile = File("orm.xml"),
                 classpath = emptyList(),
-                managedClassNames = listOf("example.generated.Group"),
+                managedEntityNames = listOf("Group"),
                 semanticModel = model,
-                packageName = "example.generated",
             )
 
         val roundTripped = roundTrip(configuration)
 
         assertEquals(model, roundTripped.semanticModel)
-        assertEquals("example.generated", roundTripped.packageName)
     }
 
     private fun groupModelWithNestedAssociationAndEnum(): PersistenceModel {

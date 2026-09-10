@@ -39,9 +39,6 @@ abstract class HibernateSchemaDiffTask : DefaultTask() {
     @get:Classpath
     abstract val modelClasspath: ConfigurableFileCollection
 
-    @get:Input
-    abstract val packageName: Property<String>
-
     @get:InputFiles
     abstract val persistenceConfigFile: ConfigurableFileCollection
 
@@ -93,7 +90,6 @@ abstract class HibernateSchemaDiffTask : DefaultTask() {
                 mappingFile = mappingFile.get().asFile,
                 classpath = modelClasspath.files.toList(),
                 semanticModel = semanticModel,
-                packageName = packageName.get(),
                 implicitNamingStrategyClassName = implicitNamingStrategyClassName.get(),
                 physicalNamingStrategyClassName = physicalNamingStrategyClassName.get(),
                 metadataCustomizerClassNames = metadataCustomizerClassNames.get(),

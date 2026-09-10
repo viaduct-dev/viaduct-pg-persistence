@@ -25,27 +25,25 @@ object HibernateMetadataConfigurationDescriptor {
         mapOf(
             "mappingFile" to configuration.mappingFile.absolutePath,
             "classpath" to configuration.classpath.map(File::getAbsolutePath),
-            "managedClassNames" to configuration.managedClassNames,
+            "managedEntityNames" to configuration.managedEntityNames,
             "implicitNamingStrategyClassName" to configuration.implicitNamingStrategyClassName,
             "physicalNamingStrategyClassName" to configuration.physicalNamingStrategyClassName,
             "metadataCustomizerClassNames" to configuration.metadataCustomizerClassNames,
             "dialectClassName" to configuration.dialectClassName,
             "hibernateSettings" to configuration.hibernateSettings,
             "semanticModel" to configuration.semanticModel?.let(PersistenceModelYaml::toYaml),
-            "packageName" to configuration.packageName,
         )
 
     private fun fromYaml(yaml: Map<String, Any?>): HibernateMetadataConfiguration =
         HibernateMetadataConfiguration(
             mappingFile = File(yaml.yamlString("mappingFile")),
             classpath = yaml.yamlStringList("classpath").map(::File),
-            managedClassNames = yaml.yamlStringList("managedClassNames"),
+            managedEntityNames = yaml.yamlStringList("managedEntityNames"),
             implicitNamingStrategyClassName = yaml.yamlString("implicitNamingStrategyClassName"),
             physicalNamingStrategyClassName = yaml.yamlString("physicalNamingStrategyClassName"),
             metadataCustomizerClassNames = yaml.yamlStringList("metadataCustomizerClassNames"),
             dialectClassName = yaml.yamlString("dialectClassName"),
             hibernateSettings = yaml.yamlStringMap("hibernateSettings"),
             semanticModel = yaml.yamlMapOrNull("semanticModel")?.let(PersistenceModelYaml::fromYaml),
-            packageName = yaml["packageName"] as String?,
         )
 }
