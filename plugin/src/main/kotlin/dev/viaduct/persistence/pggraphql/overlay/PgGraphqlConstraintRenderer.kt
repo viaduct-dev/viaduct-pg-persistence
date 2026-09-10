@@ -24,7 +24,10 @@ internal object PgGraphqlConstraintRenderer {
 
     private fun commentsByConstraint(model: EffectiveHibernateModel): Map<ConstraintColumn, String> {
         val namesByConstraint = linkedMapOf<ConstraintColumn, MutableMap<String, String>>()
-        val relationships = relationshipsIncludingEdgeFields(model)
+        val relationships =
+            relationshipsIncludingEdgeFields(model).filter {
+                it.graphqlNameKind != GraphqlNameKind.NONE
+            }
         relationships.forEach { relationship ->
             val names =
                 namesByConstraint.getOrPut(
@@ -113,7 +116,7 @@ internal object PgGraphqlConstraintRenderer {
         when (graphqlNameKind) {
             GraphqlNameKind.FOREIGN -> "foreign_name"
             GraphqlNameKind.LOCAL -> "local_name"
-            GraphqlNameKind.NONE -> error("A relationship without a GraphQL name cannot be rendered")
+            GraphqlNameKind.NONE -> error("Relationships without GraphQL names must be filtered before rendering")
         }
 
     private data class TargetGroup(

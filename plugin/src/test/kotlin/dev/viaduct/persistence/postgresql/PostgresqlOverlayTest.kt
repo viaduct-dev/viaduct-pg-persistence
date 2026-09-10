@@ -48,7 +48,7 @@ class PostgresqlOverlayTest {
             PostgresqlMigrationPlan(
                 listOf(
                     PostgresqlMigrationOperation.AddEdgeField(
-                        EdgeFieldSpec("public", "memberships", "role", "text"),
+                        EdgeFieldSpec("public", "memberships", "role", "text", true),
                     ),
                     PostgresqlMigrationOperation.AddForeignKey(
                         ForeignKeySpec("public", "teams", "owner_id", "public", "people", "id"),

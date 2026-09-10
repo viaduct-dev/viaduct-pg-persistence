@@ -101,7 +101,7 @@ class ViaductPgPersistencePluginTest {
             assertContains(pgGraphql, "invitedBy")
             assertContains(postgresql, "ADD COLUMN \"role\" varchar(255) NOT NULL")
             assertContains(postgresql, "FOREIGN KEY (\"invited_by_id\")")
-            assertContains(postgresql, "REFERENCES \"public\".\"persons\" (\"id\")")
+            assertContains(postgresql, "REFERENCES \"public\".\"persons\" (\"_uuid_id\")")
             assertFalse(pgGraphql.contains("CREATE OR REPLACE VIEW"))
             assertFalse(pgGraphql.contains("CREATE OR REPLACE FUNCTION"))
             assertFalse(output.resolve("viaduct-effective-model.tsv").exists())
