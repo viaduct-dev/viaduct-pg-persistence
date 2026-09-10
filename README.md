@@ -262,10 +262,14 @@ relationship names used by Viaduct:
   `<fieldName>Associations` (for example, `membersAssociations`).
 
 Join tables are created in the `viaduct_internal` schema by default. Because pg_graphql must read
-association rows directly, that schema must be included in the provider's exposed schemas and its
-tables must have suitable `SELECT` and RLS policies. The persistence plugin does not silently hide
-the schema or manufacture a view/function to bypass that requirement. Self-referential
-relationships use distinct owner and target columns. Override the schema when needed:
+association rows directly, that schema must be included in the provider's exposed schemas and the
+trusted backend database role must have `SELECT` access. The persistence library does not define
+application authorization: the consuming Viaduct application applies checker executors before
+returning persisted data, and the pg_graphql endpoint must remain behind that trusted boundary. If
+an application exposes pg_graphql directly to untrusted clients, it is responsible for adding its
+own grants and RLS policies. The plugin does not manufacture a view or function that bypasses
+those controls. Self-referential relationships use distinct owner and target columns. Override the
+schema when needed:
 
 ```kotlin
 viaductPgPersistence {

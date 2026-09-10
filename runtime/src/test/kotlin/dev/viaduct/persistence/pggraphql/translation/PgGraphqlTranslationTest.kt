@@ -304,6 +304,23 @@ class PgGraphqlTranslationTest {
     }
 
     @Test
+    fun `keeps object-valued edge payload selections on the association row`() {
+        val schema =
+            associationSchema(
+                fieldTypes =
+                    associationSchema().fieldTypes +
+                        (PgGraphqlFieldCoordinate("PersonEdge", "invitedBy") to "Person"),
+            )
+        val translated =
+            PgGraphqlTranslation.translateSelectionDocument(
+                "fragment Main on Group { members { edges { node { id } invitedBy { id } } } }",
+                schema,
+            )
+
+        assertContains(translated, "node{_viaduct_association_node_node:node{id}invitedBy{id}}")
+    }
+
+    @Test
     fun `rewrites nested association-backed connections recursively`() {
         val schema =
             associationSchema(

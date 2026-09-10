@@ -1,7 +1,11 @@
 package dev.viaduct.persistence.pggraphql.overlay
 
+import dev.viaduct.persistence.hibernate.EffectiveHibernateComputedRelationship
+import dev.viaduct.persistence.hibernate.EffectiveHibernateEdgeField
+import dev.viaduct.persistence.hibernate.EffectiveHibernateJoinTable
 import dev.viaduct.persistence.hibernate.EffectiveHibernateModel
 import dev.viaduct.persistence.hibernate.EffectiveHibernateRelationship
+import dev.viaduct.persistence.hibernate.EffectiveHibernateTable
 import dev.viaduct.persistence.hibernate.GraphqlNameKind
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -9,6 +13,54 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class PgGraphqlConstraintRendererTest {
+    @Test
+    fun `names object-valued association edge relationships`() {
+        val model =
+            EffectiveHibernateModel(
+                entities = emptyList(),
+                relationships = emptyList(),
+                computedRelationships =
+                    listOf(
+                        EffectiveHibernateComputedRelationship(
+                            ownerTypeName = "Group",
+                            fieldName = "members",
+                            owner = EffectiveHibernateTable("application", "groups", "id"),
+                            target = EffectiveHibernateTable("application", "persons", "id"),
+                            join =
+                                EffectiveHibernateJoinTable(
+                                    "viaduct_internal",
+                                    "group_members_associations",
+                                    "group_id",
+                                    "person_id",
+                                ),
+                            edgeFields =
+                                listOf(
+                                    EffectiveHibernateEdgeField(
+                                        name = "invitedBy",
+                                        columnName = "invited_by_id",
+                                        sqlType = "uuid",
+                                        nullable = true,
+                                        targetSchemaName = "application",
+                                        targetTableName = "persons",
+                                        targetIdColumnName = "id",
+                                    ),
+                                ),
+                        ),
+                    ),
+                arrays = emptyList(),
+            )
+
+        assertEquals(
+            """@graphql({"foreign_name": "invitedBy"})""",
+            PgGraphqlConstraintRenderer.commentValue(
+                model,
+                "viaduct_internal",
+                "group_members_associations",
+                "invited_by_id",
+            ),
+        )
+    }
+
     @Test
     fun `renders a foreign-key comment and exposes its value directly`() {
         val model = modelOf(foreignRelationship())

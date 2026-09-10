@@ -63,3 +63,8 @@ contains only `node` and `cursor`. Pagination, filters, and ordering are applied
 rows. Each response row is then unwrapped from `association.node` into the Viaduct edge node while
 the remaining association columns become edge fields; a single unidirectional connection uses the
 target relationship directly. No edge view or SQL function is required.
+
+This translation assumes pg_graphql is called by a trusted Viaduct backend. It preserves selection
+and response shapes but does not make authorization decisions; consuming applications apply
+checker executors before returning persisted fields and keep the database endpoint behind that
+boundary.
