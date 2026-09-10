@@ -16,5 +16,13 @@ internal fun arrayCheckConstraintName(array: dev.viaduct.persistence.hibernate.E
         .replace(Regex("[^A-Za-z0-9_]"), "_")
         .take(POSTGRES_IDENTIFIER_MAX_LENGTH)
 
+internal fun edgeFieldForeignKeyName(
+    tableName: String,
+    columnName: String,
+): String =
+    "viaduct_${tableName}_${columnName}_fkey"
+        .replace(Regex("[^A-Za-z0-9_]"), "_")
+        .take(POSTGRES_IDENTIFIER_MAX_LENGTH)
+
 internal fun dev.viaduct.persistence.hibernate.EffectiveHibernateEntity.qualifiedTableName(): String =
     qualifiedTableName(schemaName, tableName)

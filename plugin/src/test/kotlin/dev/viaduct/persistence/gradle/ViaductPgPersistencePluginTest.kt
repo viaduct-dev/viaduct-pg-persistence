@@ -93,8 +93,13 @@ class ViaductPgPersistencePluginTest {
             runGradle(projectDirectory, "buildViaductEffectiveModel")
             val output = projectDirectory.resolve("build/generated/viaduct-effective-model/META-INF")
             val pgGraphql = output.resolve("pg-graphql-overlay.sql").readText()
+            val postgresql = output.resolve("postgresql-migration.sql").readText()
             assertContains(pgGraphql, "COMMENT ON TABLE \"viaduct_internal\".\"group_members_associations\"")
             assertContains(pgGraphql, "membersAssociations")
+            assertContains(pgGraphql, "invitedBy")
+            assertContains(postgresql, "ADD COLUMN \"role\" varchar(255) NOT NULL")
+            assertContains(postgresql, "FOREIGN KEY (\"invited_by_id\")")
+            assertContains(postgresql, "REFERENCES \"public\".\"persons\" (\"id\")")
             assertFalse(pgGraphql.contains("CREATE OR REPLACE VIEW"))
             assertFalse(pgGraphql.contains("CREATE OR REPLACE FUNCTION"))
             assertFalse(output.resolve("viaduct-effective-model.tsv").exists())
@@ -338,6 +343,7 @@ class ViaductPgPersistencePluginTest {
         type PersonLink @edge {
           node: Person!
           role: String!
+          invitedBy: Person
         }
 
         type Query {

@@ -14,7 +14,9 @@ internal object PostgresqlMigrationRenderer {
             }
             model.computedRelationships.forEach { relationship ->
                 relationship.edgeFields.forEach { field ->
-                    appendLine(EdgeFieldMigrationRenderer.render(relationship, field))
+                    EdgeFieldMigrationRenderer.render(relationship, field).takeIf(String::isNotEmpty)?.let {
+                        appendLine(it)
+                    }
                 }
             }
         }

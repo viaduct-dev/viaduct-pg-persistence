@@ -8,40 +8,38 @@ import liquibase.resource.ClassLoaderResourceAccessor
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class HibernateMetadataReferenceTest {
     @Test
-    fun `closing a reference removes its configuration`() {
+    fun `closing a reference deletes its descriptor file`() {
         val mappingFile = temporaryMapping("not used")
         try {
             val configuration = configuration(mappingFile)
             val reference = ViaductHibernateDatabase.reference(configuration)
-            val token = reference.url.removePrefix(HIBERNATE_VIADUCT_URL_PREFIX)
+            val descriptorFile = File(reference.url.removePrefix(HIBERNATE_VIADUCT_URL_PREFIX))
 
             try {
-                assertSame(configuration, HibernateMetadataReferenceRegistry.resolve(token))
+                assertTrue(descriptorFile.isFile)
             } finally {
                 reference.close()
                 reference.close()
             }
 
-            assertFailsWith<IllegalArgumentException> {
-                HibernateMetadataReferenceRegistry.resolve(token)
-            }
+            assertFalse(descriptorFile.exists())
         } finally {
             delete(mappingFile)
         }
     }
 
     @Test
-    fun `database close releases a reference`() {
+    fun `database close deletes the descriptor file`() {
         val mappingFile = temporaryMapping(validMapping())
         val configuration = validConfiguration(mappingFile)
         val reference = ViaductHibernateDatabase.reference(configuration)
-        val token = reference.url.removePrefix(HIBERNATE_VIADUCT_URL_PREFIX)
+        val descriptorFile = File(reference.url.removePrefix(HIBERNATE_VIADUCT_URL_PREFIX))
         val resourceAccessor = ClassLoaderResourceAccessor(javaClass.classLoader)
         var database: Database? = null
         try {
@@ -59,9 +57,7 @@ class HibernateMetadataReferenceTest {
                 database?.close()
                 resourceAccessor.close()
             }
-            assertFailsWith<IllegalArgumentException> {
-                HibernateMetadataReferenceRegistry.resolve(token)
-            }
+            assertFalse(descriptorFile.exists())
         } finally {
             reference.close()
             delete(mappingFile)
@@ -69,13 +65,13 @@ class HibernateMetadataReferenceTest {
     }
 
     @Test
-    fun `reference scope releases configuration when Liquibase initialization fails`() {
+    fun `reference scope deletes the descriptor file when Liquibase initialization fails`() {
         val mappingFile = temporaryMapping("not valid Hibernate XML")
         val configuration = configuration(mappingFile)
-        val token: String
+        val descriptorFile: File
         try {
             ViaductHibernateDatabase.reference(configuration).use { reference ->
-                token = reference.url.removePrefix(HIBERNATE_VIADUCT_URL_PREFIX)
+                descriptorFile = File(reference.url.removePrefix(HIBERNATE_VIADUCT_URL_PREFIX))
                 val failure = metadataFailure(reference.url)
                 assertTrue(failure.message.orEmpty().contains("Hibernate metadata"))
             }
@@ -83,19 +79,20 @@ class HibernateMetadataReferenceTest {
             delete(mappingFile)
         }
 
-        assertFailsWith<IllegalArgumentException> {
-            HibernateMetadataReferenceRegistry.resolve(token)
-        }
+        assertFalse(descriptorFile.exists())
     }
 
     @Test
-    fun `unknown reference tokens fail when Liquibase requests metadata`() {
-        val failure = metadataFailure(HIBERNATE_VIADUCT_URL_PREFIX + "unknown-token")
-        assertTrue(failure.hasCauseMessage("No Hibernate metadata configuration"))
+    fun `a missing descriptor file fails when Liquibase requests metadata`() {
+        val missingFile = File.createTempFile("hibernate-metadata-reference-missing", ".yaml")
+        check(missingFile.delete()) { "Could not delete ${missingFile.absolutePath}" }
+
+        val failure = metadataFailure(HIBERNATE_VIADUCT_URL_PREFIX + missingFile.absolutePath)
+        assertTrue(failure.hasCauseMessage("Hibernate metadata descriptor does not exist"))
     }
 
     @Test
-    fun `empty reference tokens fail when Liquibase requests metadata`() {
+    fun `empty reference paths fail when Liquibase requests metadata`() {
         metadataFailure(HIBERNATE_VIADUCT_URL_PREFIX)
     }
 
@@ -140,13 +137,6 @@ class HibernateMetadataReferenceTest {
             mappingFile = mappingFile,
             classpath = emptyList(),
             managedClassNames = listOf("example.MissingEntity"),
-            implicitNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy",
-            physicalNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy",
-            metadataCustomizerClassNames = emptyList(),
-            dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-            hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
         )
 
     private fun validConfiguration(mappingFile: File): HibernateMetadataConfiguration =
@@ -154,13 +144,6 @@ class HibernateMetadataReferenceTest {
             mappingFile = mappingFile,
             classpath = classpath(),
             managedClassNames = listOf(TestReferenceEntity::class.java.name),
-            implicitNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy",
-            physicalNamingStrategyClassName =
-                "dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy",
-            metadataCustomizerClassNames = emptyList(),
-            dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-            hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
         )
 
     private fun classpath(): List<File> =

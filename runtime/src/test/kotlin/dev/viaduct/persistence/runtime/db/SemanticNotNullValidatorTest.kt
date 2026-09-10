@@ -5,8 +5,11 @@ import dev.viaduct.persistence.pggraphql.translation.PgGraphqlTranslationSchema
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
+import java.net.URLClassLoader
+import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class SemanticNotNullValidatorTest {
     private val validator = SemanticNotNullValidator(setOf("Group.name"))
@@ -48,6 +51,46 @@ class SemanticNotNullValidatorTest {
         )
         assertEquals("\"SEMANTIC_NON_NULL_VIOLATION\"", errors.single().extensions["code"].toString())
     }
+
+    @Test
+    fun `uses a named fragment type condition for field coordinates`() {
+        val fragmentValidator = SemanticNotNullValidator(setOf("Person.name"))
+        val errors =
+            fragmentValidator.validate(
+                SemanticValidationRequest(
+                    data = Json.parseToJsonElement("""{"name":null}""").jsonObject,
+                    errors = emptyList(),
+                    document =
+                        """
+                        fragment Main on Node { ...PersonFields }
+                        fragment PersonFields on Person { name }
+                        """.trimIndent(),
+                    rootType = "Node",
+                    rootResponseKey = "node",
+                    schema = schema,
+                ),
+            )
+
+        assertEquals("Semantic non-null field 'Person.name' returned null without an error", errors.single().message)
+    }
+
+    @Test
+    fun `rejects ambiguous semantic policy resources instead of combining modules`() {
+        val first = policyDirectory("Group.name")
+        val second = policyDirectory("Group.status")
+        URLClassLoader(arrayOf(first.toUri().toURL(), second.toUri().toURL()), null).use { classLoader ->
+            assertFailsWith<IllegalStateException> {
+                SemanticNotNullCoordinates.load(classLoader)
+            }
+        }
+    }
+
+    private fun policyDirectory(coordinate: String) =
+        Files.createTempDirectory("semantic-policy").also { directory ->
+            val resource = directory.resolve("META-INF/viaduct-persistence-semantic-not-null.txt")
+            Files.createDirectories(resource.parent)
+            Files.writeString(resource, coordinate)
+        }
 
     private fun validate(
         data: String,

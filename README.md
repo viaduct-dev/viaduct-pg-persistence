@@ -262,10 +262,14 @@ relationship names used by Viaduct:
   `<fieldName>Associations` (for example, `membersAssociations`).
 
 Join tables are created in the `viaduct_internal` schema by default. Because pg_graphql must read
-association rows directly, that schema must be included in the provider's exposed schemas and its
-tables must have suitable `SELECT` and RLS policies. The persistence plugin does not silently hide
-the schema or manufacture a view/function to bypass that requirement. Self-referential
-relationships use distinct owner and target columns. Override the schema when needed:
+association rows directly, that schema must be included in the provider's exposed schemas and the
+trusted backend database role must have `SELECT` access. The persistence library does not define
+application authorization: the consuming Viaduct application applies checker executors before
+returning persisted data, and the pg_graphql endpoint must remain behind that trusted boundary. If
+an application exposes pg_graphql directly to untrusted clients, it is responsible for adding its
+own grants and RLS policies. The plugin does not manufacture a view or function that bypasses
+those controls. Self-referential relationships use distinct owner and target columns. Override the
+schema when needed:
 
 ```kotlin
 viaductPgPersistence {
@@ -404,6 +408,10 @@ check partial responses: a null semantic-non-null field is accepted when an upst
 explains its response path, while an unexplained null adds a `SEMANTIC_NON_NULL_VIOLATION` error.
 Existing rows must still satisfy the database constraint before its reviewed schema-diff migration
 is applied.
+
+A `DbClient` classloader must expose at most one generated semantic-nullability policy. This keeps
+coordinates from separate persistence modules from being combined accidentally; applications with
+multiple policies must isolate their clients by classloader.
 
 #### Relationship Overrides
 
@@ -722,17 +730,18 @@ replacement is supported but is not the recommended default.
 
 ## Liquibase Database Driver
 
-The plugin library registers a Liquibase reference database with an opaque, in-process URL:
+The plugin library resolves a Liquibase reference database from a YAML descriptor file:
 
 ```text
-hibernate:viaduct:<opaque-token>
+hibernate:viaduct:<path-to-descriptor.yaml>
 ```
 
-The token points to an in-memory `HibernateMetadataConfiguration` registered by the current JVM.
-The driver creates an isolated classloader from that configuration, applies the configured
-Hibernate naming strategies and metadata customizers, and returns the same metadata used by
-`buildViaductEffectiveModel`. No descriptor file or serialization is involved. The Gradle tasks
-register and release the configuration automatically.
+The path points to a descriptor written by `ViaductHibernateDatabase.reference(configuration)`,
+holding the full `HibernateMetadataConfiguration` — including the semantic persistence model used
+for pg_graphql-aware diffing, when one is available. The driver reads the descriptor, creates an
+isolated classloader from it, applies the configured Hibernate naming strategies and metadata
+customizers, and returns the same metadata used by `buildViaductEffectiveModel`. The Gradle tasks
+write and delete the descriptor automatically.
 
 Add the driver when using it outside the plugin tasks:
 
@@ -746,25 +755,15 @@ dependencies {
 }
 ```
 
-Programmatic usage in the same JVM:
+Programmatic usage:
 
 ```kotlin
-import java.io.File
 import liquibase.database.DatabaseFactory
 import liquibase.resource.ClassLoaderResourceAccessor
 import dev.viaduct.persistence.hibernate.HibernateMetadataConfiguration
 import dev.viaduct.persistence.liquibase.ViaductHibernateDatabase
 
-val configuration = HibernateMetadataConfiguration(
-    mappingFile = File("build/generated/viaduct-persistence/resources/META-INF/orm.xml"),
-    classpath = listOf(File("build/classes/kotlin/main")),
-    managedClassNames = listOf("example.generated.Group"),
-    implicitNamingStrategyClassName = "dev.viaduct.persistence.hibernate.ViaductImplicitNamingStrategy",
-    physicalNamingStrategyClassName = "dev.viaduct.persistence.hibernate.ViaductPhysicalNamingStrategy",
-    metadataCustomizerClassNames = emptyList(),
-    dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-    hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
-)
+val configuration = HibernateMetadataConfiguration.default()
 val accessor = ClassLoaderResourceAccessor(
     ViaductHibernateDatabase::class.java.classLoader
 )
@@ -785,8 +784,43 @@ ViaductHibernateDatabase.reference(configuration).use { reference ->
 accessor.close()
 ```
 
-Because the token is held in memory, a standalone Liquibase CLI process cannot use this URL. Use
-the Gradle tasks or register the configuration from a program in the same JVM.
+`HibernateMetadataConfiguration.default()` works as-is once the plugin has generated a mapping
+file: it uses the plugin's own generated location
+(`build/generated/viaduct-persistence/resources/META-INF/orm.xml`), the current JVM's classpath,
+and the entity classes declared in that mapping file
+(`HibernateMetadataConfiguration.managedClassNamesIn`).
+
+`mappingFile`, `classpath`, and `managedClassNames` have no default on the primary constructor
+itself, on purpose: a process building configurations for more than one mapping file — a test
+generating several scenario-specific models is the common case — must not have a missing override
+silently fall back to an unrelated mapping file that happens to exist at the conventional location.
+Use the primary constructor with an explicit `mappingFile` whenever more than one is in play, or
+the entity classes aren't already on the running JVM's classpath:
+
+```kotlin
+val mappingFile = File("some/other/orm.xml")
+val configuration = HibernateMetadataConfiguration(
+    mappingFile = mappingFile,
+    classpath = listOf(File("build/classes/kotlin/main")),
+    managedClassNames = HibernateMetadataConfiguration.managedClassNamesIn(mappingFile),
+)
+```
+
+Naming strategies, dialect, metadata customizers, and Hibernate settings are policy knobs that
+default to the same configuration described in [Customize Hibernate](#customize-hibernate) on both
+paths; pass only the ones you want to change:
+
+```kotlin
+val configuration = HibernateMetadataConfiguration.default(
+    physicalNamingStrategyClassName = "com.example.persistence.CustomPhysicalNamingStrategy",
+    metadataCustomizerClassNames = listOf("com.example.persistence.CustomMetadataCustomizer"),
+)
+```
+
+Because the descriptor is a real file, a standalone Liquibase CLI process can use this URL too —
+write the descriptor once with `HibernateMetadataConfigurationDescriptor.write(configuration, file)`
+and pass `hibernate:viaduct:<absolute path to file>` as the `--url`, with the plugin library and
+its Liquibase dependencies on the CLI's classpath.
 
 This driver is a Liquibase reference database, not a JDBC driver and not an application runtime
 ORM. Applications using pg_graphql do not need Hibernate in their production runtime. Tests or
