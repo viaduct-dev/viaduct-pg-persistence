@@ -44,6 +44,9 @@ table row.
 Relationship storage follows these rules:
 
 - A field such as `GroupMember.group: Group` becomes a foreign key on the `GroupMember` table.
+- A matching pair such as `GroupMember.group: Group` and
+  `GroupMember.groupId: ID @idOf(type: "Group")` uses one `groupId` foreign-key column. pg_graphql
+  exposes the column as `groupId` and the related object as `group`.
 - When `Group.members: [GroupMember]` is paired with `GroupMember.group: Group`, both fields use the
   foreign key on the `GroupMember` table.
 - When only `Group.members: [GroupMember]` exists, the foreign key is also placed on the

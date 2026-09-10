@@ -77,6 +77,19 @@ type Person implements Node {
 }
 ```
 
+The scalar ID field may also accompany a matching object field. These fields use the same foreign
+key column:
+
+```graphql
+type Person implements Node {
+  id: ID
+  group: Group
+  groupId: ID @idOf(type: "Group")
+}
+```
+
+The `@idOf` target must match the object field's type.
+
 Supported stored fields are:
 
 | GraphQL field | PostgreSQL representation |
