@@ -138,6 +138,71 @@ class DbClientFetchJsonTest {
                     .map { it.jsonPrimitive.content },
             )
         }
+
+    @Test
+    fun `preserves a pathless request error`() =
+        runBlocking {
+            val selections = selections()
+            val client =
+                clientFor(
+                    """{"data":{"group":{"status":null}},"errors":[{"message":"request failed"}]}""",
+                )
+
+            val result = client.fetchJsonResult(mockk(), DbRead(DbRoot("group")), selections)
+
+            assertEquals(emptyList(), result.errors.single().path)
+        }
+
+    @Test
+    fun `filtered result preserves errors when null bubbling removes the node`() =
+        runBlocking {
+            val selections = selections()
+            val client =
+                clientFor(
+                    """
+                    {"data":{"group":{"edges":[{"node":null}]}},
+                     "errors":[{"message":"failed","path":["group","edges",0,"node","status"]}]}
+                    """.trimIndent(),
+                )
+
+            val result =
+                client.fetchJsonResult(
+                    mockk(),
+                    DbRead(DbRoot("group", singleViaFilteredCollection = true)),
+                    selections,
+                )
+
+            assertEquals(null, result.data)
+            assertEquals(
+                listOf("group", "status"),
+                result.errors
+                    .single()
+                    .path
+                    .map { it.jsonPrimitive.content },
+            )
+        }
+
+    private fun selections(): SelectionSet<FetchJsonFixtureNode> =
+        mockk<SelectionSet<FetchJsonFixtureNode>>().also { selections ->
+            every { selections.isEmpty() } returns false
+            every { selections.type } returns FetchJsonFixtureType
+            every { selections.toFragment() } returns
+                OutputSelectionFragment(
+                    "Main",
+                    "fragment Main on FetchJsonFixtureNode { status }",
+                    emptyMap(),
+                )
+        }
+
+    private fun clientFor(response: String): DbClient =
+        DbClient(
+            HttpClient(
+                MockEngine {
+                    respond(response, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+                },
+            ),
+            "https://example.test/graphql/v1",
+        )
 }
 
 private class FetchJsonFixtureNode : NodeObject {

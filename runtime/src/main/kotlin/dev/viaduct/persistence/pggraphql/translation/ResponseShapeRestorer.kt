@@ -24,17 +24,8 @@ internal class ResponseShapeRestorer {
             else -> response
         }
 
-    /** Restores a pg_graphql error path with exactly the same transformations as its response data. */
-    @Suppress("ReturnCount")
-    fun restorePath(
-        response: JsonElement,
-        path: List<JsonElement>,
-    ): List<JsonElement> {
-        if (path.isEmpty()) return emptyList()
-        val marker = JsonObject(mapOf("__viaduct_error_path_marker__" to JsonPrimitive(true)))
-        val marked = response.replaceAt(path, marker) ?: return path
-        return findPath(restore(marked), marker) ?: path
-    }
+    /** Restores a pg_graphql error path using the aliases that define response restoration. */
+    fun restorePath(path: List<JsonElement>): List<JsonElement> = ResponsePathRestorer.restore(path)
 
     private fun restoreObject(response: JsonObject): JsonObject =
         JsonObject(
@@ -44,51 +35,98 @@ internal class ResponseShapeRestorer {
                 restored.key to restored.value
             },
         )
+}
 
-    @Suppress("ReturnCount")
-    private fun JsonElement.replaceAt(
+@Suppress("MagicNumber")
+private object ResponsePathRestorer {
+    fun restore(path: List<JsonElement>): List<JsonElement> {
+        val restored = mutableListOf<JsonElement>()
+        var index = 0
+        while (index < path.size) {
+            val segment = path[index]
+            val key = (segment as? JsonPrimitive)?.content
+            val consumed = restoreSegment(path, index, key, restored)
+            index += consumed
+        }
+        return restored
+    }
+
+    private fun restoreSegment(
         path: List<JsonElement>,
-        replacement: JsonElement,
-    ): JsonElement? {
-        if (path.isEmpty()) return replacement
-        val head = path.first()
-        val tail = path.drop(1)
-        return when (this) {
-            is JsonObject -> {
-                val key = (head as? JsonPrimitive)?.content ?: return null
-                val child = get(key)?.replaceAt(tail, replacement) ?: return null
-                JsonObject(this + (key to child))
+        index: Int,
+        key: String?,
+        restored: MutableList<JsonElement>,
+    ): Int =
+        when {
+            key == VIADUCT_NODES_RESPONSE_ALIAS -> restoreNodes(path, index, restored)
+            key?.startsWith(VIADUCT_ASSOCIATION_NODES_ALIAS_PREFIX) == true ->
+                restoreAssociationNodes(path, index, key, restored)
+            key?.startsWith(VIADUCT_ASSOCIATION_EDGES_ALIAS_PREFIX) == true ->
+                restoreAssociationEdges(path, index, key, restored)
+            key?.startsWith(VIADUCT_ASSOCIATION_CONNECTION_ALIAS_PREFIX) == true -> {
+                restored +=
+                    JsonPrimitive(
+                        responseKeyFromInternalAlias(VIADUCT_ASSOCIATION_CONNECTION_ALIAS_PREFIX, key),
+                    )
+                1
             }
-            is JsonArray -> {
-                val index = (head as? JsonPrimitive)?.content?.toIntOrNull() ?: return null
-                if (index !in indices) return null
-                JsonArray(
-                    mapIndexed { current, value ->
-                        if (current == index) value.replaceAt(tail, replacement) ?: value else value
-                    },
-                )
+            key?.startsWith(VIADUCT_ASSOCIATION_NODE_ALIAS_PREFIX) == true -> {
+                restored += JsonPrimitive(responseKeyFromInternalAlias(VIADUCT_ASSOCIATION_NODE_ALIAS_PREFIX, key))
+                1
             }
-            else -> null
+            else -> {
+                restored += path[index]
+                1
+            }
+        }
+
+    private fun restoreNodes(
+        path: List<JsonElement>,
+        index: Int,
+        restored: MutableList<JsonElement>,
+    ): Int {
+        restored += JsonPrimitive("nodes")
+        path.getOrNull(index + 1)?.let(restored::add)
+        return if (path.textAt(index + 2) == "node") 3 else 2
+    }
+
+    private fun restoreAssociationNodes(
+        path: List<JsonElement>,
+        index: Int,
+        key: String,
+        restored: MutableList<JsonElement>,
+    ): Int {
+        restored += JsonPrimitive(responseKeyFromInternalAlias(VIADUCT_ASSOCIATION_NODES_ALIAS_PREFIX, key))
+        path.getOrNull(index + 1)?.let(restored::add)
+        return if (
+            path.textAt(index + 2) == "node" &&
+            path.textAt(index + 3)?.startsWith(VIADUCT_ASSOCIATION_NODE_ALIAS_PREFIX) == true
+        ) {
+            4
+        } else {
+            2
         }
     }
 
-    private fun findPath(
-        value: JsonElement,
-        target: JsonElement,
-    ): List<JsonElement>? {
-        if (value == target) return emptyList()
-        return when (value) {
-            is JsonObject ->
-                value.entries.firstNotNullOfOrNull { (key, child) ->
-                    findPath(child, target)?.let { listOf(JsonPrimitive(key)) + it }
-                }
-            is JsonArray ->
-                value.withIndex().firstNotNullOfOrNull { (index, child) ->
-                    findPath(child, target)?.let { listOf(JsonPrimitive(index)) + it }
-                }
-            else -> null
+    private fun restoreAssociationEdges(
+        path: List<JsonElement>,
+        index: Int,
+        key: String,
+        restored: MutableList<JsonElement>,
+    ): Int {
+        restored += JsonPrimitive(responseKeyFromInternalAlias(VIADUCT_ASSOCIATION_EDGES_ALIAS_PREFIX, key))
+        path.getOrNull(index + 1)?.let(restored::add)
+        if (path.textAt(index + 2) != "node") return 2
+        val nodeAlias = path.textAt(index + 3)
+        return if (nodeAlias?.startsWith(VIADUCT_ASSOCIATION_NODE_ALIAS_PREFIX) == true) {
+            restored += JsonPrimitive(responseKeyFromInternalAlias(VIADUCT_ASSOCIATION_NODE_ALIAS_PREFIX, nodeAlias))
+            4
+        } else {
+            3
         }
     }
+
+    private fun List<JsonElement>.textAt(index: Int): String? = (getOrNull(index) as? JsonPrimitive)?.content
 }
 
 private class AssociationConnectionFieldRestorer : ResponseFieldRestorer {

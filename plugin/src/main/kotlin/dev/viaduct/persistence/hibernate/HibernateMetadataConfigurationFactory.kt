@@ -5,9 +5,14 @@ import dev.viaduct.persistence.model.associationEntityClassName
 import dev.viaduct.persistence.model.entityClassName
 import java.io.File
 
-/** Builds Hibernate metadata inputs from the semantic persistence model. */
+/**
+ * Builds Hibernate metadata inputs from the semantic persistence model.
+ *
+ * Only [mappingFile], [classpath], [semanticModel], and [packageName] are mandatory; the
+ * remaining fields are policy knobs that default to Viaduct's standard configuration.
+ */
 @Suppress("LongParameterList")
-internal class HibernateMetadataConfigurationInput(
+class HibernateMetadataConfigurationInput(
     val mappingFile: File,
     classpath: List<File>,
     val semanticModel: PersistenceModel,
@@ -15,13 +20,18 @@ internal class HibernateMetadataConfigurationInput(
     val implicitNamingStrategyClassName: String = ViaductImplicitNamingStrategy::class.java.name,
     val physicalNamingStrategyClassName: String = ViaductPhysicalNamingStrategy::class.java.name,
     metadataCustomizerClassNames: List<String> = emptyList(),
+    val dialectClassName: String = HibernateMetadataConfiguration.DEFAULT_DIALECT,
+    hibernateSettings: Map<String, String> = HibernateMetadataConfiguration.defaultSettings(),
 ) {
     val classpath: List<File> = java.util.List.copyOf(classpath)
     val metadataCustomizerClassNames: List<String> =
         java.util.List.copyOf(metadataCustomizerClassNames)
+    val hibernateSettings: Map<String, String> =
+        java.util.Collections.unmodifiableMap(java.util.LinkedHashMap(hibernateSettings))
 }
 
-internal object HibernateMetadataConfigurationFactory {
+/** Builds a [HibernateMetadataConfiguration] with Viaduct's standard policy defaults. */
+object HibernateMetadataConfigurationFactory {
     fun create(input: HibernateMetadataConfigurationInput): HibernateMetadataConfiguration =
         HibernateMetadataConfiguration(
             mappingFile = input.mappingFile,
@@ -30,8 +40,8 @@ internal object HibernateMetadataConfigurationFactory {
             implicitNamingStrategyClassName = input.implicitNamingStrategyClassName,
             physicalNamingStrategyClassName = input.physicalNamingStrategyClassName,
             metadataCustomizerClassNames = input.metadataCustomizerClassNames,
-            dialectClassName = HibernateMetadataConfiguration.DEFAULT_DIALECT,
-            hibernateSettings = HibernateMetadataConfiguration.defaultSettings(),
+            dialectClassName = input.dialectClassName,
+            hibernateSettings = input.hibernateSettings,
             semanticModel = input.semanticModel,
             packageName = input.packageName,
         )

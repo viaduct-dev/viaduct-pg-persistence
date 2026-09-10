@@ -252,11 +252,28 @@ class PgGraphqlTranslationTest {
 
     @Test
     fun `restores error paths with the response shape`() {
-        val response = associationResponse()
-
         val path =
             PgGraphqlTranslation.restoreViaductResponsePath(
-                response,
+                listOf(
+                    JsonPrimitive("_viaduct_association_connection_members"),
+                    JsonPrimitive("_viaduct_association_edges_edges"),
+                    JsonPrimitive(0),
+                    JsonPrimitive("node"),
+                    JsonPrimitive("_viaduct_association_node_node"),
+                    JsonPrimitive("id"),
+                ),
+            )
+
+        assertEquals(
+            listOf("members", "edges", "0", "node", "id"),
+            path.map { it.toString().trim('"') },
+        )
+    }
+
+    @Test
+    fun `restores an error path when null bubbling removed its data subtree`() {
+        val path =
+            PgGraphqlTranslation.restoreViaductResponsePath(
                 listOf(
                     JsonPrimitive("_viaduct_association_connection_members"),
                     JsonPrimitive("_viaduct_association_edges_edges"),

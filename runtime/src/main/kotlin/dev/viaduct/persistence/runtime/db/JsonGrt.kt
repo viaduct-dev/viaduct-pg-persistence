@@ -13,9 +13,9 @@ import viaduct.api.types.CompositeOutput
 /**
  * Converts a pg_graphql JSON response into the generated Viaduct value for a typed selection set.
  *
- * This is the second half of [DbClient.fetch]: fetching JSON and converting it to a GRT are
- * separate, explicit steps, so a caller with JSON obtained some other way — a cache, a different
- * transport, a test fixture — can convert it directly instead of going through [DbClient.fetchJson].
+ * This is the conversion used by [DbClient.fetchResult]. It remains public so a caller with JSON
+ * obtained some other way — a cache, a different transport, or a test fixture — can convert it
+ * without going through [DbClient.fetchJson].
  */
 @Suppress("UNCHECKED_CAST")
 fun <T : CompositeOutput> JsonObject.toGRT(

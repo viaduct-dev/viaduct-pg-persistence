@@ -25,6 +25,8 @@ internal object DbResponseReader {
         nodes(data).firstOrNull()
             ?: error("Db response for '$responseKey' matched no rows")
 
+    fun firstNodeOrNull(data: JsonObject): JsonObject? = nodes(data).firstOrNull()
+
     fun nodes(data: JsonObject): List<JsonObject> =
         data["edges"]
             ?.jsonArray
