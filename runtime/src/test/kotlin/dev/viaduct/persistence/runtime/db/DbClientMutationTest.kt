@@ -32,7 +32,8 @@ class DbClientMutationTest {
 
             client.insertRaw(
                 mockk<ExecutionContext>(),
-                TestInput("AddGroupInput", mapOf("name" to "Chess", "description" to "Weekly games")),
+                TestInput("AddGroupInput", mapOf("name" to "Chess", "description" to "Weekly games"))
+                    .toPgGraphqlInsert(),
                 "Group",
             )
 
@@ -66,7 +67,7 @@ class DbClientMutationTest {
 
             client.insertRaw(
                 mockk<ExecutionContext>(),
-                TestInput("AddGroupMemberInput", mapOf("groupId" to encodedGroupId)),
+                TestInput("AddGroupMemberInput", mapOf("groupId" to encodedGroupId)).toPgGraphqlInsert(),
                 "GroupMember",
             )
 
@@ -93,7 +94,7 @@ class DbClientMutationTest {
                 TestInput(
                     "UpdateGroupInput",
                     mapOf("groupId" to "group-1", "personId" to "person-1", "name" to "New name"),
-                ),
+                ).toPgGraphqlUpdate("Group"),
                 "Group",
             )
 
@@ -136,7 +137,7 @@ class DbClientMutationTest {
 
             client.deleteRaw(
                 mockk<ExecutionContext>(),
-                TestInput("DeleteGroupInput", mapOf("groupId" to "group-1")),
+                TestInput("DeleteGroupInput", mapOf("groupId" to "group-1")).toPgGraphqlDelete("Group"),
                 "Group",
             )
 
@@ -153,11 +154,7 @@ class DbClientMutationTest {
             )
 
             assertFailsWith<IllegalArgumentException> {
-                client.deleteRaw(
-                    mockk<ExecutionContext>(),
-                    TestInput("AddGroupInput", mapOf("name" to "No identifier")),
-                    "Group",
-                )
+                TestInput("AddGroupInput", mapOf("name" to "No identifier")).toPgGraphqlDelete("Group")
             }
         }
 
@@ -178,15 +175,14 @@ class DbClientMutationTest {
 
             val failure =
                 assertFailsWith<IllegalArgumentException> {
-                    client.updateRaw(mockk<ExecutionContext>(), input, "Group")
+                    input.toPgGraphqlUpdate("Group")
                 }
             assertEquals(true, failure.message?.contains("Pass identifierField explicitly"))
 
             client.updateRaw(
                 mockk<ExecutionContext>(),
-                input,
+                input.toPgGraphqlUpdate("Group", identifierField = "groupId"),
                 "Group",
-                identifierField = "groupId",
             )
 
             val variables = requests.single().getValue("variables").jsonObject

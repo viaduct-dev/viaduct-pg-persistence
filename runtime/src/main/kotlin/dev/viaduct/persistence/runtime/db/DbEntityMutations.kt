@@ -14,7 +14,6 @@ import viaduct.api.context.MutationFieldExecutionContext
 import viaduct.api.reflect.CompositeField
 import viaduct.api.reflect.Type
 import viaduct.api.types.CompositeOutput
-import viaduct.api.types.Input
 import viaduct.api.types.NodeObject
 
 /** CRUD operations for one persisted Viaduct node type. */
@@ -27,38 +26,35 @@ class DbEntityMutations<T : NodeObject>
         /** Inserts one row and returns the current mutation resolver's payload. */
         suspend fun <P : CompositeOutput> insert(
             ctx: MutationFieldExecutionContext<*, *, *, P>,
-            input: Input,
+            input: PgGraphqlObject,
         ): P = payload(ctx, client.insertRaw(ctx, input, entityType.name), batch = false)
 
         /** Inserts several rows in one pg_graphql mutation and returns the current resolver's payload. */
         suspend fun <P : CompositeOutput> insertBatch(
             ctx: MutationFieldExecutionContext<*, *, *, P>,
-            inputs: Iterable<Input>,
+            inputs: Iterable<PgGraphqlObject>,
         ): P = payload(ctx, client.insertRaw(ctx, inputs, entityType.name), batch = true)
 
         /** Updates one row and returns the current mutation resolver's payload. */
         suspend fun <P : CompositeOutput> update(
             ctx: MutationFieldExecutionContext<*, *, *, P>,
-            input: Input,
-            identifierField: String? = null,
-        ): P = payload(ctx, client.updateRaw(ctx, input, entityType.name, identifierField), batch = false)
+            mutation: PgGraphqlUpdate,
+        ): P = payload(ctx, client.updateRaw(ctx, mutation, entityType.name), batch = false)
 
         /** Updates several independently identified rows and returns a list-valued resolver payload. */
         suspend fun <P : CompositeOutput> updateBatch(
             ctx: MutationFieldExecutionContext<*, *, *, P>,
-            inputs: Iterable<Input>,
-            identifierField: String? = null,
-        ): P = payload(ctx, client.updateRaw(ctx, inputs, entityType.name, identifierField), batch = true)
+            mutations: Iterable<PgGraphqlUpdate>,
+        ): P = payload(ctx, client.updateRaw(ctx, mutations, entityType.name), batch = true)
 
         /** Deletes one row and returns the current mutation resolver's payload. */
         suspend fun <P : CompositeOutput> delete(
             ctx: MutationFieldExecutionContext<*, *, *, P>,
-            input: Input,
-            identifierField: String? = null,
+            mutation: PgGraphqlDelete,
         ): P =
             payload(
                 ctx,
-                client.deleteRaw(ctx, input, entityType.name, identifierField),
+                client.deleteRaw(ctx, mutation, entityType.name),
                 batch = false,
                 allowNoEntityField = true,
             )
@@ -66,12 +62,11 @@ class DbEntityMutations<T : NodeObject>
         /** Deletes several independently identified rows and returns the current resolver's payload. */
         suspend fun <P : CompositeOutput> deleteBatch(
             ctx: MutationFieldExecutionContext<*, *, *, P>,
-            inputs: Iterable<Input>,
-            identifierField: String? = null,
+            mutations: Iterable<PgGraphqlDelete>,
         ): P =
             payload(
                 ctx,
-                client.deleteRaw(ctx, inputs, entityType.name, identifierField),
+                client.deleteRaw(ctx, mutations, entityType.name),
                 batch = true,
                 allowNoEntityField = true,
             )

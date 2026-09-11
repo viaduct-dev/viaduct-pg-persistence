@@ -23,7 +23,7 @@ class PgGraphqlMutationClientTest {
     private val person = PgGraphqlEntity("Person")
 
     @Test
-    fun `insert accepts a Viaduct input GRT directly`() =
+    fun `an explicitly converted Viaduct input can be inserted`() =
         runBlocking {
             var requestBody = ""
             val client =
@@ -32,7 +32,8 @@ class PgGraphqlMutationClientTest {
                     """{"data":{"insertIntoPersonCollection":{"affectedCount":1}}}"""
                 }
 
-            client.insert(person, TestInput(mapOf("name" to "Ada", "active" to true)))
+            val input = TestInput(mapOf("name" to "Ada", "active" to true)).toPgGraphqlInsert()
+            client.insert(person, input)
 
             val objects =
                 json

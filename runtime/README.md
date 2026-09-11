@@ -58,8 +58,10 @@ The resolver's typed context determines the payload type, so the application doe
 payload or copy IDs out of a pg_graphql response:
 
 ```kotlin
-override suspend fun resolve(ctx: Context): AddGroupMemberPayload =
-    dbClient.entity<GroupMember>().insert(ctx, ctx.arguments.input)
+override suspend fun resolve(ctx: Context): AddGroupMemberPayload {
+    val insert = ctx.arguments.input.toPgGraphqlInsert()
+    return dbClient.entity<GroupMember>().insert(ctx, insert)
+}
 ```
 
 These operations provide insert, update, and delete for one selected node type. A call writes only
@@ -83,9 +85,9 @@ Batch mutations use the same rules. `insertBatch` sends all inputs in one pg_gra
 into the resolver payload:
 
 ```kotlin
-dbClient.entity<GroupMember>().insertBatch(ctx, ctx.arguments.inputs)
-dbClient.entity<GroupMember>().updateBatch(ctx, ctx.arguments.inputs)
-dbClient.entity<GroupMember>().deleteBatch(ctx, ctx.arguments.inputs)
+dbClient.entity<GroupMember>().insertBatch(ctx, ctx.arguments.inputs.map { it.toPgGraphqlInsert() })
+dbClient.entity<GroupMember>().updateBatch(ctx, ctx.arguments.inputs.map { it.toPgGraphqlUpdate<GroupMember>() })
+dbClient.entity<GroupMember>().deleteBatch(ctx, ctx.arguments.inputs.map { it.toPgGraphqlDelete<GroupMember>() })
 ```
 
 Update and delete require a generated Viaduct input containing an ID field whose `@idOf` target
@@ -94,7 +96,8 @@ argument. When exactly one input field matches, it identifies the row automatica
 fails, and multiple matches fail rather than choosing a field. Resolve an ambiguity explicitly:
 
 ```kotlin
-dbClient.entity<Group>().update(ctx, ctx.arguments.input, identifierField = "groupId")
+val update = ctx.arguments.input.toPgGraphqlUpdate<Group>(identifierField = "groupId")
+dbClient.entity<Group>().update(ctx, update)
 ```
 
 The explicit field must exist and have the matching `@idOf` target. It becomes the `uuidId` filter

@@ -248,26 +248,28 @@ construct them.
 
 ## Resolve Mutations
 
-Select the persistent node type and pass the Viaduct input directly. The resolver context supplies
-the payload type:
+Convert the Viaduct input into a pg_graphql value, then pass that value to the selected persistent
+node type. The resolver context supplies the payload type:
 
 ```kotlin
-override suspend fun resolve(ctx: Context): AddGroupMemberPayload =
-    dbClient.entity<GroupMember>().insert(ctx, ctx.arguments.input)
+override suspend fun resolve(ctx: Context): AddGroupMemberPayload {
+    val insert = ctx.arguments.input.toPgGraphqlInsert()
+    return dbClient.entity<GroupMember>().insert(ctx, insert)
+}
 ```
 
 The same API supports updates, deletes, and batches:
 
 ```kotlin
-dbClient.entity<Group>().update(ctx, ctx.arguments.input)
-dbClient.entity<GroupMember>().delete(ctx, ctx.arguments.input)
+dbClient.entity<Group>().update(ctx, ctx.arguments.input.toPgGraphqlUpdate<Group>())
+dbClient.entity<GroupMember>().delete(ctx, ctx.arguments.input.toPgGraphqlDelete<GroupMember>())
 
-dbClient.entity<GroupMember>().insertBatch(ctx, ctx.arguments.inputs)
-dbClient.entity<GroupMember>().updateBatch(ctx, ctx.arguments.inputs)
-dbClient.entity<GroupMember>().deleteBatch(ctx, ctx.arguments.inputs)
+dbClient.entity<GroupMember>().insertBatch(ctx, ctx.arguments.inputs.map { it.toPgGraphqlInsert() })
+dbClient.entity<GroupMember>().updateBatch(ctx, ctx.arguments.inputs.map { it.toPgGraphqlUpdate<GroupMember>() })
+dbClient.entity<GroupMember>().deleteBatch(ctx, ctx.arguments.inputs.map { it.toPgGraphqlDelete<GroupMember>() })
 ```
 
-The client converts typed global IDs, creates returned node references, fills the matching payload
+The conversion functions convert typed global IDs. The client creates returned node references, fills the matching payload
 field, and initializes `userErrors` to an empty list. Multiple matching payload fields are rejected
 as ambiguous.
 
@@ -312,8 +314,8 @@ An omitted field is not changed; an explicitly supplied null is sent as null. De
 the selected rows. Any cascading delete behavior comes from application-owned database constraints,
 not recursive behavior in PG Persistence. The entity API does not provide upsert.
 
-Insert accepts a generated Viaduct input whose supplied fields are valid for pg_graphql's insert
-input for the selected node. Update and delete require that input to contain an ID field whose
+Insert conversion accepts a generated Viaduct input whose supplied fields are valid for pg_graphql's
+insert input for the selected node. Update and delete conversion require that input to contain an ID field whose
 `@idOf` target is the type selected by `entity<T>()`. The ID must be inside the input;
 the entity API does not inspect a separate mutation argument. The client converts that GlobalID to
 the row's `uuidId` filter and excludes the selected field from the values sent by update.
@@ -323,7 +325,8 @@ because the operation cannot identify a row. If more than one field matches, the
 rather than guessing; select the identifying field explicitly:
 
 ```kotlin
-dbClient.entity<Group>().update(ctx, ctx.arguments.input, identifierField = "groupId")
+val update = ctx.arguments.input.toPgGraphqlUpdate<Group>(identifierField = "groupId")
+dbClient.entity<Group>().update(ctx, update)
 ```
 
 The explicit field must exist in the input and have `@idOf(type: "Group")`. Batch update and delete
@@ -349,15 +352,14 @@ val group = PgGraphqlEntity("Group")
 
 val inserted = mutations.insert(
     entity = group,
-    input = ctx.arguments.input,
+    objectValue = ctx.arguments.input.toPgGraphqlInsert(),
     selection = "affectedCount records { uuidId name }",
     headers = mapOf("Authorization" to "Bearer $accessToken"),
 )
 ```
 
-Insert accepts a generated Viaduct input directly. It also has a `JsonArray` overload for callers
-that already have pg_graphql insert objects. Typed GlobalIDs in Viaduct inputs are converted to
-their internal IDs.
+This lower-level client accepts pg_graphql JSON. Convert a Viaduct input separately or construct
+the pg_graphql values directly. Typed GlobalIDs are converted by `toPgGraphqlInsert`.
 
 Update and delete accept explicit pg_graphql filters. `atMost` is required, must be greater than
 zero, and limits how many matching rows pg_graphql may change:

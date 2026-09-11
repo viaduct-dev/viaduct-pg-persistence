@@ -14,6 +14,8 @@ class PgGraphqlObject private constructor(
     internal fun encoded(): JsonObject = JsonObject(json.toMap())
 
     companion object {
+        internal fun from(json: JsonObject): PgGraphqlObject = PgGraphqlObject(json)
+
         fun of(vararg fields: Pair<String, Any?>): PgGraphqlObject =
             PgGraphqlObject(
                 buildJsonObject {
@@ -22,6 +24,17 @@ class PgGraphqlObject private constructor(
             )
     }
 }
+
+/** The pg_graphql values and filter for one update operation. */
+data class PgGraphqlUpdate(
+    val values: PgGraphqlObject,
+    val filter: PgGraphqlFilter,
+)
+
+/** The pg_graphql filter for one delete operation. */
+data class PgGraphqlDelete(
+    val filter: PgGraphqlFilter,
+)
 
 /** A pg_graphql filter encoded without exposing JSON construction to applications. */
 class PgGraphqlFilter private constructor(

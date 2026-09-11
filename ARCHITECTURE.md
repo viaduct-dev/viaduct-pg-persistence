@@ -131,15 +131,17 @@ unchanged.
 `DbClient.entity<T>()` captures the persistent node type. Its operations receive the typed mutation
 resolver context, so the runtime can determine the declared payload without another argument.
 
-For an insert or update, the runtime:
+The resolver first explicitly converts its Viaduct input to a pg_graphql insert, update, or delete
+value. This separate step can be replaced by application-specific conversion when a mutation does
+more than directly map input fields. Mutation execution does not inspect a Viaduct input.
 
-1. Reads the generated Viaduct input data.
-2. Converts typed global IDs to internal IDs.
-3. Sends values as pg_graphql variables.
-4. Reads returned record IDs.
-5. Creates Viaduct node references.
-6. Finds the single payload field whose type matches the persistent node.
-7. Builds that payload and initializes `userErrors`.
+For an insert or update, the runtime then:
+
+1. Sends the already converted values as pg_graphql variables.
+2. Reads returned record IDs.
+3. Creates Viaduct node references.
+4. Finds the single payload field whose type matches the persistent node.
+5. Builds that payload and initializes `userErrors`.
 
 Mutation execution handles one persistent node type and one pg_graphql collection mutation at a
 time. Input encoding can encode nested Viaduct inputs, maps, and collections as GraphQL variable
@@ -164,7 +166,7 @@ Update and delete require a generated Viaduct input containing an ID field whose
 the selected persistent node type. An ID supplied as a separate mutation argument is not inspected.
 When exactly one field matches, it is selected automatically. No match fails because a row cannot
 be identified. More than one match also fails rather than treating every matching relationship as
-part of the filter; the resolver must supply `identifierField` explicitly. That field is validated
+part of the filter; the resolver must supply `identifierField` to the conversion function. That field is validated
 against the input type, used for the `uuidId` filter, and omitted from the updated values.
 
 The same explicit field name applies to every input in a batch. Batch insert uses one pg_graphql
@@ -173,9 +175,8 @@ The entity API throws on pg_graphql errors and does not translate them to applic
 Resolvers that need explicit filters, partial data, or structured errors use
 `PgGraphqlMutationClient` directly.
 
-The same value conversion is used by filters, mutation inputs, and values passed directly to
-`PgGraphqlMutationClient`. It handles existing JSON, Viaduct inputs, global IDs, maps,
-collections, and scalars.
+The explicit mutation conversion uses the same value encoder as filters and other pg_graphql
+values. It handles existing JSON, Viaduct inputs, global IDs, maps, collections, and scalars.
 
 ## Hibernate and Liquibase
 

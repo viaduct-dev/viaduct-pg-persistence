@@ -2,33 +2,55 @@ package dev.viaduct.persistence.runtime.db
 
 import graphql.schema.GraphQLInputObjectType
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import viaduct.api.types.Input
+import viaduct.api.types.NodeObject
 
-internal fun Input.mutationValues(
+/** Explicitly converts a Viaduct input into values accepted by pg_graphql insert operations. */
+fun Input.toPgGraphqlInsert(): PgGraphqlObject = PgGraphqlObject.from(toPgGraphqlInput())
+
+/** Converts a Viaduct input into a single-row pg_graphql update. */
+inline fun <reified T : NodeObject> Input.toPgGraphqlUpdate(identifierField: String? = null): PgGraphqlUpdate =
+    toPgGraphqlUpdate(reflectedType(T::class.java).name, identifierField)
+
+/** Converts a Viaduct input into a single-row pg_graphql delete. */
+inline fun <reified T : NodeObject> Input.toPgGraphqlDelete(identifierField: String? = null): PgGraphqlDelete =
+    toPgGraphqlDelete(reflectedType(T::class.java).name, identifierField)
+
+@PublishedApi
+internal fun Input.toPgGraphqlUpdate(
     entityName: String,
     identifierField: String? = null,
-): JsonObject {
+): PgGraphqlUpdate {
     val values = toPgGraphqlInput()
     val identifierName = identifierName(entityName, identifierField)
     require(values.containsKey(identifierName)) {
         "Mutation input does not contain identifier field '$identifierName'"
     }
-    return JsonObject(values.filterKeys { it != identifierName })
+    return PgGraphqlUpdate(
+        PgGraphqlObject.from(JsonObject(values.filterKeys { it != identifierName })),
+        identifierFilter(values, identifierName),
+    )
 }
 
-internal fun Input.mutationIdentifiers(
+@PublishedApi
+internal fun Input.toPgGraphqlDelete(
     entityName: String,
     identifierField: String? = null,
-): JsonObject {
+): PgGraphqlDelete {
     val values = toPgGraphqlInput()
     val identifierName = identifierName(entityName, identifierField)
+    return PgGraphqlDelete(identifierFilter(values, identifierName))
+}
+
+private fun identifierFilter(
+    values: JsonObject,
+    identifierName: String,
+): PgGraphqlFilter {
     val identifier =
         requireNotNull(values[identifierName]) {
             "Mutation input does not contain identifier field '$identifierName'"
         }
-    return buildJsonObject { put("uuidId", buildJsonObject { put("eq", identifier) }) }
+    return PgGraphqlFilter.eq("uuidId", identifier)
 }
 
 private fun Input.identifierName(

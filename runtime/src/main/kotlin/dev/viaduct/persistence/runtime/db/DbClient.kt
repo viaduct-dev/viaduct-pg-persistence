@@ -22,7 +22,6 @@ import viaduct.api.context.ExecutionContext
 import viaduct.api.context.ResolverExecutionContext
 import viaduct.api.select.SelectionSet
 import viaduct.api.types.CompositeOutput
-import viaduct.api.types.Input
 import viaduct.api.types.NodeObject
 import viaduct.api.types.Query
 
@@ -84,38 +83,37 @@ class DbClient(
 
     internal suspend fun insertRaw(
         ctx: ExecutionContext,
-        input: Input,
+        input: PgGraphqlObject,
         entityName: String,
     ): JsonObject =
         mutationClient.insert(
             PgGraphqlEntity(entityName),
-            input,
+            buildJsonArray { add(input.encoded()) },
             selection = "affectedCount records { uuidId }",
             headers = requestHeaders.forContext(ctx),
         )
 
     internal suspend fun insertRaw(
         ctx: ExecutionContext,
-        inputs: Iterable<Input>,
+        inputs: Iterable<PgGraphqlObject>,
         entityName: String,
     ): JsonObject =
         mutationClient.insert(
             PgGraphqlEntity(entityName),
-            buildJsonArray { inputs.forEach { add(it.toPgGraphqlInput()) } },
+            buildJsonArray { inputs.forEach { add(it.encoded()) } },
             selection = "affectedCount records { uuidId }",
             headers = requestHeaders.forContext(ctx),
         )
 
     internal suspend fun updateRaw(
         ctx: ExecutionContext,
-        input: Input,
+        mutation: PgGraphqlUpdate,
         entityName: String,
-        identifierField: String? = null,
     ): JsonObject =
         mutationClient.update(
             PgGraphqlEntity(entityName),
-            input.mutationValues(entityName, identifierField),
-            input.mutationIdentifiers(entityName, identifierField),
+            mutation.values.encoded(),
+            mutation.filter.encoded(),
             atMost = 1,
             selection = "affectedCount records { uuidId }",
             headers = requestHeaders.forContext(ctx),
@@ -123,30 +121,27 @@ class DbClient(
 
     internal suspend fun updateRaw(
         ctx: ExecutionContext,
-        inputs: Iterable<Input>,
+        mutations: Iterable<PgGraphqlUpdate>,
         entityName: String,
-        identifierField: String? = null,
-    ): JsonObject = inputs.map { updateRaw(ctx, it, entityName, identifierField) }.combinedMutationPayload()
+    ): JsonObject = mutations.map { updateRaw(ctx, it, entityName) }.combinedMutationPayload()
 
     internal suspend fun deleteRaw(
         ctx: ExecutionContext,
-        input: Input,
+        mutation: PgGraphqlDelete,
         entityName: String,
-        identifierField: String? = null,
     ): JsonObject =
         mutationClient.delete(
             PgGraphqlEntity(entityName),
-            input.mutationIdentifiers(entityName, identifierField),
+            mutation.filter.encoded(),
             atMost = 1,
             headers = requestHeaders.forContext(ctx),
         )
 
     internal suspend fun deleteRaw(
         ctx: ExecutionContext,
-        inputs: Iterable<Input>,
+        mutations: Iterable<PgGraphqlDelete>,
         entityName: String,
-        identifierField: String? = null,
-    ): JsonObject = inputs.map { deleteRaw(ctx, it, entityName, identifierField) }.combinedMutationPayload()
+    ): JsonObject = mutations.map { deleteRaw(ctx, it, entityName) }.combinedMutationPayload()
 
     /** Fetches [selections] and converts the result to a GRT. Shortcut for [fetchJson] + [toGRT]. */
     suspend fun <T : CompositeOutput> fetch(
