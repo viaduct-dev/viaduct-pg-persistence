@@ -573,6 +573,27 @@ remain strict for compatibility and throw `UpstreamGraphqlException` when `pg_gr
 errors. `DbResult` does not itself install errors into Viaduct's field-error channel; resolvers that
 retain partial data must do that at their execution boundary.
 
+For a batch node resolver, `fetchByInternalIdsResult` performs that boundary conversion and returns
+one Viaduct `FieldValue` per requested UUID:
+
+```kotlin
+val byId = dbClient.fetchByInternalIdsResult(
+    ctx = contexts.first(),
+    collectionField = "groupCollection",
+    ids = contexts.map { it.id.internalID },
+    ownedSelections = contexts.first().ownedSelections(),
+    requestedSelections = contexts.first().selections(),
+)
+return contexts.associateWith { context -> byId.getValue(context.id.internalID) }
+```
+
+Found nodes remain successful when another UUID is absent. A missing row becomes an error value
+with code `MISSING_ROW`, and a pg_graphql error associated with one returned edge becomes an error
+value for that node. Viaduct uses the original resolver context to place the error at the
+application GraphQL response path. Errors that cannot be associated with an edge are thrown rather
+than discarded. Until Viaduct provides a supported way to put an error value on an individual GRT
+field, a field error fails its node while preserving the other nodes in the batch.
+
 The repeatable overlay enables row-level security but does not invent authorization policies.
 Normal Viaduct access should put `pg_graphql` behind a trusted backend role and enforce application
 authorization with checker executors. If untrusted clients can reach the database GraphQL endpoint,
