@@ -96,7 +96,7 @@ class ViaductPgPersistencePluginTest {
             val output = projectDirectory.resolve("build/generated/viaduct-effective-model/META-INF")
             val pgGraphql = output.resolve("pg-graphql-overlay.sql").readText()
             val postgresql = output.resolve("postgresql-migration.sql").readText()
-            assertContains(pgGraphql, "COMMENT ON TABLE \"viaduct_internal\".\"group_members_associations\"")
+            assertContains(pgGraphql, "COMMENT ON TABLE \"public\".\"group_members_associations\"")
             assertContains(pgGraphql, "membersAssociations")
             assertContains(pgGraphql, "invitedBy")
             assertContains(postgresql, "ADD COLUMN \"role\" varchar(255) NOT NULL")

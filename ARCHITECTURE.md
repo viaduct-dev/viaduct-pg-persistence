@@ -58,8 +58,8 @@ Relationship storage follows these rules:
 - A field that refers to the same `Node` type on which it is declared uses separate columns for
   the two ends of the relationship.
 
-Association tables are placed in `viaduct_internal` by default. Their pg_graphql relationship is
-named `<fieldName>Associations`, such as `membersAssociations`.
+Association tables use the same default database schema as persistent node tables. Their
+pg_graphql relationship is named `<fieldName>Associations`, such as `membersAssociations`.
 
 ## Persistence Policy
 
@@ -205,8 +205,7 @@ authorization policies. A normal Viaduct application keeps the pg_graphql endpoi
 backend and uses checker executors before returning persistent fields.
 
 If untrusted clients can reach pg_graphql directly, the application must define the required
-database grants and RLS policies. Association schemas must be exposed to the trusted database role
-when pg_graphql needs to read their rows.
+database grants and RLS policies.
 
 ## Development and Publishing
 
