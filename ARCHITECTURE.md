@@ -149,6 +149,21 @@ values, but encoding a value does not make it a separate database operation. pg_
 nested value only when that value is part of the selected table's generated insert or update input.
 It does not interpret a nested persistent node as an instruction to insert or update another table.
 
+A `DbTransaction` buffers already converted pg_graphql mutation values in memory. Beginning or
+aborting it does not contact pg_graphql. Committing renders every buffered operation as a uniquely
+aliased top-level field with unique variables and sends one GraphQL mutation request. Operation
+handles associate each returned payload with the call that added it. The result form retains
+partial root data and upstream GraphQL errors.
+
+Because all GraphQL variables are supplied at the start of that request, operations cannot consume
+earlier returned values. Related inserts use client-created UUIDs. The transaction has explicit
+open, committing, committed, aborted, and failed states and cannot be reused after commit, abort,
+or failure.
+
+pg_graphql resolves the combined mutation within the database request. PostgreSQL commits the
+request when every operation succeeds and rolls it back when the request fails; it does not keep a
+database transaction open between `beginTransaction()` and `commit()`.
+
 Relationships are written through their foreign-key ID fields. Creating several related node types
 requires separate entity operations and IDs known before the relationship row is inserted. Batch
 insert writes several rows of the same node type; it is not recursive object-graph persistence.

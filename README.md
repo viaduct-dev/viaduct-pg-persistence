@@ -300,10 +300,40 @@ input AddGroupMemberInput {
 }
 ```
 
-To create the Group, Person, and GroupMember together, the resolver must perform three inserts and
-pass the created IDs into GroupMember. The current entity API sends those as separate requests.
-Transactional multi-operation support requires one combined pg_graphql request with client-created
-UUIDs and is tracked separately.
+To create the Group, Person, and GroupMember together, the resolver performs three inserts and
+passes client-created UUIDs into GroupMember. A transaction sends those inserts in one request.
+
+### Buffer mutations in one transaction
+
+Begin a transaction to buffer several mutation operations. Nothing is sent to pg_graphql until
+`commit()`; `abort()` discards the buffered operations without sending a request:
+
+```kotlin
+val groupId = UUID.randomUUID()
+val membershipId = UUID.randomUUID()
+val group = PgGraphqlObject.of("uuidId" to groupId, "name" to "Chess")
+val membership =
+    PgGraphqlObject.of(
+        "uuidId" to membershipId,
+        "groupId" to groupId,
+        "personId" to ctx.arguments.personId,
+    )
+
+val transaction = dbClient.beginTransaction(ctx)
+try {
+    val groupOperation = transaction.entity<Group>().insert(group)
+    transaction.entity<GroupMember>().insert(membership)
+    val result = transaction.commit()
+    val groupPayload = result[groupOperation]
+} catch (failure: Throwable) {
+    transaction.abort()
+    throw failure
+}
+```
+
+Convert Viaduct inputs before adding them. Each operation returns a handle because its database
+result does not exist until commit. `commitResult()` preserves partial data and GraphQL errors.
+All values must be known before commit, so operations cannot use or branch on an earlier result.
 
 Batch operations do not change this rule. `insertBatch<Group>` inserts several Groups in one table;
 it does not insert a mixed object graph. Batch update and delete likewise target one selected node
