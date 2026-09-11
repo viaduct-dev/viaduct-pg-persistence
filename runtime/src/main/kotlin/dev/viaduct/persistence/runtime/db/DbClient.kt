@@ -13,6 +13,7 @@ import io.ktor.client.HttpClient
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import viaduct.api.FieldValue
 import viaduct.api.context.ExecutionContext
 import viaduct.api.context.ResolverExecutionContext
 import viaduct.api.select.SelectionSet
@@ -151,6 +152,26 @@ class DbClient(
         requestedSelections: SelectionSet<T> = ownedSelections,
     ): Map<String, T> where T : CompositeOutput, T : NodeObject =
         dbBatchFetcher.fetchByInternalIds(
+            ctx,
+            collectionField,
+            ids,
+            ownedSelections,
+            requestedSelections,
+        )
+
+    /**
+     * Fetches several nodes as independent Viaduct field values. A missing row or an upstream
+     * error associated with one returned node becomes an error value for that UUID without
+     * discarding the other nodes.
+     */
+    suspend fun <T> fetchByInternalIdsResult(
+        ctx: ResolverExecutionContext<out Query>,
+        collectionField: String,
+        ids: List<String>,
+        ownedSelections: SelectionSet<T>,
+        requestedSelections: SelectionSet<T> = ownedSelections,
+    ): Map<String, FieldValue<T>> where T : CompositeOutput, T : NodeObject =
+        dbBatchFetcher.fetchByInternalIdsResult(
             ctx,
             collectionField,
             ids,
