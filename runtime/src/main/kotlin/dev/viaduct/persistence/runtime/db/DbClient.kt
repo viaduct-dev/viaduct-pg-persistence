@@ -81,6 +81,9 @@ class DbClient(
     @Suppress("MaxLineLength")
     inline fun <reified T : NodeObject> entity(): DbEntityMutations<T> = DbEntityMutations(this, reflectedType(T::class.java))
 
+    /** Begins an in-memory transaction that sends its buffered operations together on commit. */
+    fun beginTransaction(ctx: ExecutionContext): DbTransaction = DbTransaction(transport, ctx)
+
     internal suspend fun insertRaw(
         ctx: ExecutionContext,
         input: PgGraphqlObject,
